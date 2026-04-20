@@ -2853,6 +2853,7 @@ function togglePayCard(u){
   if(selectedPayUsers.has(u)) selectedPayUsers.delete(u);
   else selectedPayUsers.add(u);
   updateRptPdfBtn();
+  updatePayGrandTotal(); // ← recalcular total al cambiar selección
 }
 function selectAllPayCards(all){
   document.querySelectorAll('#rpt-pay-list .pay-card').forEach(card=>{
@@ -2862,6 +2863,7 @@ function selectAllPayCards(all){
     else{selectedPayUsers.delete(u);if(chk)chk.checked=false;}
   });
   updateRptPdfBtn();
+  updatePayGrandTotal(); // ← recalcular total al cambiar selección masiva
 }
 function filterPayCards(){
   const q=(document.getElementById('rpt-search')?.value||'').toLowerCase().trim();
@@ -2942,6 +2944,8 @@ function updatePayGrandTotal(){
   let grand=0,hasAny=false;
   list.querySelectorAll('[data-paycard]').forEach(card=>{
     const u=card.dataset.paycard;
+    // Solo sumar empleados actualmente seleccionados (checkbox marcado)
+    if(selectedPayUsers.size>0&&!selectedPayUsers.has(u))return;
     const rate=getEmpRate(u);
     const hrsEl=card.querySelector('[data-reg]');
     if(rate>0&&hrsEl){
@@ -4126,13 +4130,21 @@ function drawerGoToRegistros(){
 let _prYear=new Date().getFullYear();
 let _prMonth=new Date().getMonth();
 
-function openPersonalRecord(){
+async function openPersonalRecord(){
   closeDrawer();
   const nameEl=document.getElementById('pr-emp-name');
   if(nameEl)nameEl.textContent=currentUser?currentUser.charAt(0).toUpperCase()+currentUser.slice(1):'';
   openModal('modal-personal-record');
   _prYear=new Date().getFullYear();
   _prMonth=new Date().getMonth();
+  // Mostrar cargando mientras bajamos datos
+  const grid=document.getElementById('pr-cal-grid');
+  if(grid)grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text4);font-size:12px;padding:24px 0;letter-spacing:.3px">⏳ Cargando registros...</div>';
+  // Descargar TODOS los registros del empleado desde Supabase antes de renderizar
+  if(supabaseAvailable){
+    await fetchRecordsFromSupabase();
+    allRecords=await getAllRecords();
+  }
   renderPrCalendar();
   renderPrWeeks();
 }
@@ -4147,15 +4159,15 @@ function prChangeMonth(delta){
 function renderPrCalendar(){
   const lbl=document.getElementById('pr-month-lbl');
   const grid=document.getElementById('pr-cal-grid');
+  const statsEl=document.getElementById('pr-month-stats');
   if(!lbl||!grid)return;
   const monthNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   lbl.textContent=monthNames[_prMonth]+' '+_prYear;
   // Construir mapa de días con horas trabajadas
   const userRecs=allRecords.filter(r=>r.usuario===currentUser);
-  // Agrupar todos los registros por fecha para calcular lunch real
   const recsByDate={};
   userRecs.forEach(r=>{if(!recsByDate[r.fecha])recsByDate[r.fecha]=[];recsByDate[r.fecha].push(r);});
-  const dayMap={};// fecha → {mins, lastTipo, paid}
+  const dayMap={};// fecha → {totalMins, lastTipo, paid}
   userRecs.forEach(r=>{
     if(!dayMap[r.fecha])dayMap[r.fecha]={lastEntrada:null,totalMins:0,lastTipo:r.tipo,paid:false};
     const d=dayMap[r.fecha];
@@ -4176,7 +4188,6 @@ function renderPrCalendar(){
     const from=new Date(h.from+'T00:00:00');
     const to=new Date(h.to+'T23:59:59');
     Object.keys(dayMap).forEach(fecha=>{
-      // Convertir fecha key a Date (formato toLocaleDateString es-US: M/D/YYYY)
       try{
         const parts=fecha.split('/');
         if(parts.length===3){
@@ -4186,31 +4197,62 @@ function renderPrCalendar(){
       }catch(e){}
     });
   });
-  // Generar grid del mes
+  // ── Calcular estadísticas del mes y semana actual ─────────
+  const today=new Date();
+  const getWeekStart=d=>{const dt=new Date(d);dt.setDate(dt.getDate()-((dt.getDay()+6)%7));dt.setHours(0,0,0,0);return dt;};
+  const weekStart=getWeekStart(today);
+  const weekEnd=new Date(weekStart);weekEnd.setDate(weekStart.getDate()+6);weekEnd.setHours(23,59,59,999);
+  let monthMins=0,monthDays=0,weekMins=0;
+  Object.entries(dayMap).forEach(([fecha,info])=>{
+    if(!info.totalMins)return;
+    try{
+      const parts=fecha.split('/');
+      if(parts.length!==3)return;
+      const fd=new Date(parts[2]+'-'+parts[0].padStart(2,'0')+'-'+parts[1].padStart(2,'0')+'T12:00:00');
+      if(fd.getFullYear()===_prYear&&fd.getMonth()===_prMonth){monthMins+=info.totalMins;monthDays++;}
+      if(fd>=weekStart&&fd<=weekEnd)weekMins+=info.totalMins;
+    }catch(e){}
+  });
+  // ── Stats bar ─────────────────────────────────────────────
+  if(statsEl){
+    const mh=(monthMins/60).toFixed(1);
+    const wh=(weekMins/60).toFixed(1);
+    const otDays=Object.entries(dayMap).filter(([f,i])=>{
+      if(!i.totalMins)return false;
+      try{const p=f.split('/');const fd=new Date(p[2]+'-'+p[0].padStart(2,'0')+'-'+p[1].padStart(2,'0')+'T12:00:00');return fd.getFullYear()===_prYear&&fd.getMonth()===_prMonth&&i.totalMins>480;}catch(e){return false;}
+    }).length;
+    statsEl.innerHTML=`
+      <div class="pr-stat-card">
+        <div class="pr-stat-val">${mh}h</div>
+        <div class="pr-stat-lbl">Este mes</div>
+      </div>
+      <div class="pr-stat-card">
+        <div class="pr-stat-val">${monthDays}</div>
+        <div class="pr-stat-lbl">Días trab.</div>
+      </div>
+      <div class="pr-stat-card">
+        <div class="pr-stat-val" style="color:#60a5fa">${wh}h</div>
+        <div class="pr-stat-lbl">Esta semana</div>
+      </div>
+      <div class="pr-stat-card">
+        <div class="pr-stat-val" style="color:${otDays?'#f97316':'var(--text2)'}">${otDays}</div>
+        <div class="pr-stat-lbl">Días OT</div>
+      </div>`;
+  }
+  // ── Generar grid del mes ─────────────────────────────────
   const firstDay=new Date(_prYear,_prMonth,1).getDay();
   const daysInMonth=new Date(_prYear,_prMonth+1,0).getDate();
-  const today=new Date();
-  const todayStr=getTodayKey();
   let html='';
-  // Celdas vacías al inicio
   for(let i=0;i<firstDay;i++)html+=`<div class="pr-day-cell pr-day-empty"></div>`;
   for(let d=1;d<=daysInMonth;d++){
-    const dateObj=new Date(_prYear,_prMonth,d);
-    // Construir la clave en formato M/D/YYYY (igual que getTodayKey)
     const fechaKey=`${_prMonth+1}/${d}/${_prYear}`;
     const info=dayMap[fechaKey];
     const isToday=_prYear===today.getFullYear()&&_prMonth===today.getMonth()&&d===today.getDate();
     const hasWork=info&&info.totalMins>0;
     const isPaid=info?.paid;
     const hrsStr=hasWork?((info.totalMins/60).toFixed(1)+'h'):'';
-    const typeColors={Entrada:'#10b981',Salida:'#ef4444','Inicio Lunch':'#f97316','Fin Lunch':'#3b82f6'};
-    const dotColor=info?typeColors[info.lastTipo]||'#475569':'';
-    const isOT=info&&info.totalMins>480; // >8h = overtime
-    html+=`<div class="pr-day-cell${hasWork?' has-work':''}${isOT&&!isPaid?' has-ot':''}${isPaid?' paid':''}${isToday?' today':''}"${hasWork?` onclick="prOpenDayPopup('${fechaKey}')"`:''}">
-      <span class="pr-day-num">${d}</span>
-      ${dotColor?`<span class="pr-day-dot" style="background:${dotColor}"></span>`:''}
-      ${hrsStr?`<span class="pr-day-hrs">${hrsStr}</span>`:''}
-    </div>`;
+    const isOT=info&&info.totalMins>480;
+    html+=`<div class="pr-day-cell${hasWork?' has-work':''}${isOT&&!isPaid?' has-ot':''}${isPaid?' paid':''}${isToday?' today':''}"${hasWork?` onclick="prOpenDayPopup('${fechaKey}')"`:''}><span class="pr-day-num">${d}</span>${hrsStr?`<span class="pr-day-hrs">${hrsStr}</span>`:''}<div class="pr-day-bar"></div></div>`;
   }
   grid.innerHTML=html;
 }
@@ -4367,6 +4409,30 @@ function showToast(m){const t=document.getElementById('toast');t.textContent=m;t
 // ============================================================
 let selectedArea = '';
 
+// Carga proyectos activos en el selector del modal de salida
+async function populateProyectoSelect(){
+  const sel=document.getElementById('proyecto-input');
+  if(!sel||sel.tagName!=='SELECT')return;
+  // Sincronizar desde Supabase antes de poblar
+  if(supabaseAvailable) await fetchProyectosFromSupabase();
+  const lista=await getAllProyectos();
+  const activos=lista.filter(p=>!p.estado||p.estado==='activo'||p.estado==='en curso');
+  sel.innerHTML='<option value="">Sin proyecto específico</option>';
+  if(activos.length){
+    activos.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+    activos.forEach(p=>{
+      const opt=document.createElement('option');
+      opt.value=p.nombre||'';
+      opt.textContent=p.nombre||'Sin nombre';
+      sel.appendChild(opt);
+    });
+  } else {
+    const opt=document.createElement('option');opt.disabled=true;
+    opt.textContent='— Sin proyectos activos —';
+    sel.appendChild(opt);
+  }
+}
+
 async function abrirModalSalida(cycle){
   // Calcular horas desde los registros de hoy
   const today = getTodayKey();
@@ -4413,6 +4479,9 @@ async function abrirModalSalida(cycle){
     document.getElementById('area-error').textContent = '⚠ No registraste LUNCH hoy — no se descontará';
     document.getElementById('area-error').style.color = 'var(--orange)';
   }
+
+  // Poblar selector de proyectos (fire-and-forget — se carga mientras el usuario elige área)
+  populateProyectoSelect();
 
   openModal('modal-salida-resumen');
 }
