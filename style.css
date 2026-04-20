@@ -613,23 +613,35 @@ select:focus{border-color:rgba(16,185,129,0.4)}
 .pr-month-lbl{font-size:15px;font-weight:700;color:#fff}
 .pr-cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px}
 .pr-cal-dow span{text-align:center;font-size:9px;font-weight:600;color:var(--text4);text-transform:uppercase;padding:4px 0}
-.pr-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.pr-day-cell{min-height:62px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 2px;position:relative}
+/* Month stats bar */
+.pr-month-stats{display:flex;gap:6px;margin-bottom:12px}
+.pr-stat-card{flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:9px 4px;text-align:center}
+.pr-stat-val{font-size:17px;font-weight:800;color:#fff;line-height:1;margin-bottom:3px}
+.pr-stat-lbl{font-size:9px;color:var(--text4);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+/* Calendar grid */
+.pr-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.pr-day-cell{min-height:66px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:7px 2px 0;position:relative;overflow:hidden;transition:transform .1s,opacity .1s}
 .pr-day-cell.pr-day-empty{background:transparent;border-color:transparent}
-.pr-day-cell.has-work{background:rgba(59,130,246,0.09);border-color:rgba(59,130,246,0.25);cursor:pointer}
-.pr-day-cell.has-work:active{opacity:0.7;transform:scale(0.93);transition:transform .1s}
-.pr-day-cell.has-ot{background:rgba(249,115,22,0.11);border-color:rgba(249,115,22,0.35)}
-.pr-day-cell.paid{background:rgba(16,185,129,0.13);border-color:rgba(16,185,129,0.4)}
-.pr-day-cell.today{border-color:rgba(249,115,22,0.7);box-shadow:0 0 0 2px rgba(249,115,22,0.18)}
-.pr-day-num{font-size:14px;font-weight:700;color:var(--text2);line-height:1}
+.pr-day-cell.has-work{background:linear-gradient(160deg,rgba(59,130,246,0.13) 0%,rgba(59,130,246,0.04) 100%);border-color:rgba(59,130,246,0.3);cursor:pointer}
+.pr-day-cell.has-work:active{opacity:.7;transform:scale(.92)}
+.pr-day-cell.has-ot{background:linear-gradient(160deg,rgba(249,115,22,0.16) 0%,rgba(249,115,22,0.05) 100%);border-color:rgba(249,115,22,0.42)}
+.pr-day-cell.paid{background:linear-gradient(160deg,rgba(16,185,129,0.16) 0%,rgba(16,185,129,0.05) 100%);border-color:rgba(16,185,129,0.42)}
+.pr-day-cell.today{border-color:rgba(249,115,22,0.85);box-shadow:0 0 0 2px rgba(249,115,22,0.22)}
+.pr-day-num{font-size:15px;font-weight:700;color:var(--text2);line-height:1;margin-bottom:3px}
 .pr-day-cell.today .pr-day-num{color:#f97316;font-weight:800}
-.pr-day-cell.paid .pr-day-num{color:var(--green)}
+.pr-day-cell.paid .pr-day-num{color:#34d399}
 .pr-day-cell.has-ot .pr-day-num{color:#fed7aa}
 .pr-day-dot{width:5px;height:5px;border-radius:50%}
-.pr-day-hrs{font-size:10px;color:var(--text3);font-family:var(--mono);font-weight:700;line-height:1}
+.pr-day-hrs{font-size:11px;color:var(--text3);font-family:var(--mono);font-weight:800;line-height:1}
 .pr-day-cell.has-work .pr-day-hrs{color:#60a5fa}
-.pr-day-cell.has-ot .pr-day-hrs{color:#f97316;font-weight:800}
-.pr-day-cell.paid .pr-day-hrs{color:var(--green)}
+.pr-day-cell.has-ot .pr-day-hrs{color:#fb923c}
+.pr-day-cell.paid .pr-day-hrs{color:#34d399}
+/* Bottom accent bar */
+.pr-day-bar{position:absolute;bottom:0;left:0;right:0;height:3px;background:transparent;border-radius:0 0 9px 9px}
+.pr-day-cell.has-work .pr-day-bar{background:rgba(59,130,246,0.55)}
+.pr-day-cell.has-ot .pr-day-bar{background:rgba(249,115,22,0.75)}
+.pr-day-cell.paid .pr-day-bar{background:rgba(52,211,153,0.65)}
+.pr-day-cell.today .pr-day-bar{background:#f97316}
 /* Day detail popup */
 #pr-day-popup{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);padding:16px}
 .pr-day-popup-box{background:#1a2332;border:1px solid rgba(255,255,255,0.13);border-radius:18px;padding:20px;width:100%;max-width:310px;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
