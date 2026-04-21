@@ -852,6 +852,12 @@ async function syncRecordToSupabase(record){
       console.error('[Sync] 🔒 RLS bloqueando INSERT en records. Ejecuta en Supabase SQL Editor:\n'+
         "CREATE POLICY \"allow_insert_anon_records\" ON records FOR INSERT TO anon WITH CHECK (true);");
       _syncRlsError=true;
+    } else if(err2&&err2.includes('foreign key')){
+      console.error('[Sync] 🔗 Foreign key violation — el usuario no existe en tabla employees en Supabase. Ejecuta:\nALTER TABLE records DROP CONSTRAINT IF EXISTS records_usuario_fkey;');
+    } else if(err2&&err2.includes('null value')){
+      console.error('[Sync] ⚠️ Columna NOT NULL rechazando el INSERT. Revisa el schema de la tabla records.');
+    } else {
+      console.error('[Sync] Respuesta completa de Supabase:', err2);
     }
     return false;
   }catch(e){
@@ -4140,11 +4146,13 @@ async function openPersonalRecord(){
   // Mostrar cargando mientras bajamos datos
   const grid=document.getElementById('pr-cal-grid');
   if(grid)grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text4);font-size:12px;padding:24px 0;letter-spacing:.3px">⏳ Cargando registros...</div>';
-  // Descargar TODOS los registros del empleado desde Supabase antes de renderizar
+  // Descargar registros desde Supabase si hay conexión
   if(supabaseAvailable){
     await fetchRecordsFromSupabase();
-    allRecords=await getAllRecords();
   }
+  // SIEMPRE recargar allRecords desde IndexedDB (con o sin Supabase)
+  // para que el calendario muestre registros locales aunque el sync falle
+  allRecords=await getAllRecords();
   renderPrCalendar();
   renderPrWeeks();
 }
