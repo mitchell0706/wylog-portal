@@ -482,12 +482,15 @@ select:focus{border-color:rgba(16,185,129,0.4)}
 .rg-detail{max-height:0;overflow:hidden;transition:max-height .4s ease;border-top:0 solid var(--border)}
 .rg-detail.open{max-height:1200px;border-top-width:1px}
 /* Fila de cada registro individual dentro del detalle */
-.rg-rec{display:flex;align-items:center;gap:8px;padding:8px 13px;border-bottom:1px solid rgba(255,255,255,0.04)}
+.rg-rec{display:flex;flex-direction:column;padding:8px 13px;border-bottom:1px solid rgba(255,255,255,0.04)}
 .rg-rec:last-of-type{border-bottom:none}
-.rg-badge{font-size:10px!important;padding:2px 7px!important}
+.rg-rec-row1{display:flex;align-items:center;gap:7px;width:100%}
+.rg-rec-row2{display:flex;align-items:center;gap:6px;margin-top:4px;padding-left:2px;flex-wrap:wrap}
+.rg-badge{font-size:10px!important;padding:2px 7px!important;flex-shrink:0}
 .rg-hora{font-size:11px;font-family:var(--mono);color:var(--text2);flex:1}
-.rg-area{font-size:10px;color:var(--blue);background:rgba(59,130,246,0.1);padding:2px 6px;border-radius:8px;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis}
-.rg-hrs{font-size:11px;font-family:var(--mono);color:var(--green);white-space:nowrap}
+.rg-area{font-size:9px;color:var(--blue);background:rgba(59,130,246,0.1);padding:2px 7px;border-radius:8px;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+.rg-device{font-size:9px;color:#64748b;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:1px 7px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.rg-hrs{font-size:11px;font-family:var(--mono);color:var(--green);white-space:nowrap;flex-shrink:0}
 .rg-sync{font-size:11px;width:14px;text-align:center;flex-shrink:0}
 .rg-sync.ok{color:var(--green)}
 .rg-sync.pend{color:var(--text4);opacity:.5}
