@@ -292,7 +292,7 @@ let clockInt=null,codeInt=null,lunchInt=null,backupInt=null,syncInt=null;
 let gpsWatchId=null;
 let allRecords=[];
 let employees={};
-let deviceId=getDeviceId();
+let deviceId=localStorage.getItem('sc_device_id')||''; // se actualiza con hardware ID en init()
 let currentDeviceModel='Desconocido'; // se detecta en init() con Capacitor Device API
 let lunchStartTime=null,lunchExtended=0;
 let biometricReady=false;
@@ -1089,7 +1089,18 @@ function startSyncSchedule(){
 // ============================================================
 // HELPERS
 // ============================================================
-function getDeviceId(){
+async function getDeviceId(){
+  // Prioridad 1: ANDROID_ID via Capacitor — persiste aunque el app se desinstale
+  try{
+    if(window.Capacitor?.Plugins?.Device){
+      const info=await window.Capacitor.Plugins.Device.getId();
+      if(info&&info.identifier){
+        localStorage.setItem('sc_device_id',info.identifier);
+        return info.identifier;
+      }
+    }
+  }catch(e){console.warn('[Device] No se pudo obtener hardware ID:',e);}
+  // Fallback: ID aleatorio guardado en localStorage (navegador web / emulador)
   let id=localStorage.getItem('sc_device_id');
   if(!id){id='dev_'+Date.now()+'_'+Math.random().toString(36).substring(2,9);localStorage.setItem('sc_device_id',id);}
   return id;
@@ -5037,6 +5048,8 @@ function initBeforeUnloadProtection(){
 async function init(){
   try{
     applyLang(); // apply saved language preference immediately
+    // Obtener ID de hardware estable (persiste tras reinstalar el app)
+    deviceId=await getDeviceId();
     await initDB();
     await migrateLegacyData();
     await deduplicateLocalRecords(); // eliminar duplicados al inicio
