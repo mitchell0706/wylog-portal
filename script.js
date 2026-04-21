@@ -2478,25 +2478,29 @@ function renderAdminRecords(){
         }
       }
       const recDev=r.device||r.device_id||'';
-      const recDevShort=recDev&&recDev!=='remoto'?(recDev.substring(0,10)+'…'):(recDev||'—');
       const recEmp=employees[r.usuario]||{};
-      const bioStatus=recEmp.biometricId?'Verificada (Nativa)':recEmp.faceRegistered?'Face ID':'Sin biometría';
+      const devModel=recEmp.deviceModel||r.device_model||'';
+      // Mostrar modelo del dispositivo si existe, si no ID corto
+      const devDisplay=devModel||(recDev&&recDev!=='remoto'?recDev.substring(0,8)+'…':'');
+      const hasBio=recEmp.biometricId||recEmp.faceRegistered;
       const bioColor=recEmp.biometricId?'#10b981':recEmp.faceRegistered?'#3b82f6':'#64748b';
-      const devModel=recEmp.deviceModel||'';
+      const bioTitle=recEmp.biometricId?'Biometría nativa':recEmp.faceRegistered?'Face ID registrado':'Sin biometría';
+      // Ícono pequeño de biometría (huella) — solo si tiene bio registrada
+      const bioIcon=hasBio?`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${bioColor}" stroke-width="2" style="flex-shrink:0;opacity:.8" title="${bioTitle}"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`:'';
       return`<div class="rg-rec">
-  <span class="badge ${cmap[r.tipo]||'badge-e'} rg-badge">${r.tipo}</span>
-  <span class="rg-hora">${r.hora}</span>
-  ${r.area_trabajo?`<span class="rg-area">${r.area_trabajo}</span>`:''}
-  ${r.horas_neto?`<span class="rg-hrs">${r.horas_neto}</span>`:''}
-  <span title="${recDev||'Desconocido'}${devModel?' · '+devModel:''}" style="font-size:9px;color:#64748b;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:1px 5px;font-family:monospace;cursor:default">
-    📱 ${recDevShort}${devModel?' ('+devModel+')':''}
-  </span>
-  <span style="font-size:9px;color:${bioColor};border:1px solid ${bioColor}30;border-radius:4px;padding:1px 5px;background:${bioColor}10">
-    ${bioStatus}
-  </span>
-  <span class="rg-sync ${r.synced_cloud?'ok':'pend'}" title="${r.synced_cloud?'Sincronizado con Supabase':'Pendiente de subir'}">${r.synced_cloud?'☁':'○'}</span>
-  ${coordsParts?`<button class="rg-gps-btn" onclick="event.stopPropagation();toggleRgMap('${rid}',${coordsParts.lat},${coordsParts.lng})">📍</button>`:''}
-  <button class="rg-gps-btn" style="color:#3b82f6;margin-left:2px" onclick="event.stopPropagation();openEditRecord(${r.id})" title="Editar registro">✏️</button>
+  <div class="rg-rec-row1">
+    <span class="badge ${cmap[r.tipo]||'badge-e'} rg-badge">${r.tipo}</span>
+    <span class="rg-hora">${r.hora}</span>
+    ${r.horas_neto?`<span class="rg-hrs">${r.horas_neto}</span>`:''}
+    <span class="rg-sync ${r.synced_cloud?'ok':'pend'}" title="${r.synced_cloud?'Sincronizado con Supabase':'Pendiente de subir'}">${r.synced_cloud?'☁':'○'}</span>
+    ${coordsParts?`<button class="rg-gps-btn" onclick="event.stopPropagation();toggleRgMap('${rid}',${coordsParts.lat},${coordsParts.lng})">📍</button>`:''}
+    <button class="rg-gps-btn" style="color:#3b82f6" onclick="event.stopPropagation();openEditRecord(${r.id})" title="Editar registro">✏️</button>
+  </div>
+  ${(devDisplay||r.area_trabajo)?`<div class="rg-rec-row2">
+    ${devDisplay?`<span class="rg-device" title="${recDev||devDisplay}">📱 ${devDisplay}</span>`:''}
+    ${r.area_trabajo?`<span class="rg-area" title="${r.area_trabajo}">${r.area_trabajo}</span>`:''}
+    ${bioIcon}
+  </div>`:''}
 </div>
 ${coordsParts?`<div class="rg-map-wrap" id="rg-map-${rid}">
   <div class="rg-map-header">
@@ -2624,30 +2628,28 @@ function toggleRgMap(rid,lat,lng){
     // Inicializar mapa Leaflet la primera vez que se abre
     const mapDiv=document.getElementById('rg-mapbox-'+rid);
     if(mapDiv&&typeof L!=='undefined'){
-      setTimeout(()=>{
-        try{
-          const map=L.map(mapDiv,{zoomControl:true,attributionControl:false}).setView([lat,lng],17);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-          // Marcador personalizado con círculo pulsante
-          const icon=L.divIcon({
-            className:'',
-            html:`<div style="width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3)"></div>`,
-            iconSize:[16,16],iconAnchor:[8,8]
-          });
-          L.marker([lat,lng],{icon}).addTo(map);
-          // Llamar invalidateSize varias veces para cubrir la animación de apertura
-          [100,250,450,700].forEach(ms=>setTimeout(()=>{
-            map.invalidateSize();
-            map.setView([lat,lng],17);
-          },ms));
-          // ResizeObserver: re-centra el mapa cuando el contenedor termina de expandirse
-          if(window.ResizeObserver){
-            const ro=new ResizeObserver(()=>{map.invalidateSize();map.setView([lat,lng],17);});
-            ro.observe(mapDiv);
-            setTimeout(()=>ro.disconnect(),2000); // dejar de observar tras 2s
-          }
-        }catch(e){console.warn('Leaflet init error:',e);}
-      },50);
+      // Esperar hasta que el contenedor tenga dimensiones reales (la animación CSS puede tardar)
+      const _mapDeadline=Date.now()+2500;
+      function _tryInitMap(){
+        const rect=mapDiv.getBoundingClientRect();
+        if(rect.width>20&&rect.height>20){
+          try{
+            const map=L.map(mapDiv,{zoomControl:true,attributionControl:false}).setView([lat,lng],17);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+            const icon=L.divIcon({
+              className:'',
+              html:`<div style="width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3)"></div>`,
+              iconSize:[16,16],iconAnchor:[8,8]
+            });
+            L.marker([lat,lng],{icon}).addTo(map);
+            // Un invalidateSize final para asegurar renderizado correcto
+            setTimeout(()=>{map.invalidateSize();map.setView([lat,lng],17);},250);
+          }catch(e){console.warn('Leaflet init error:',e);}
+        }else if(Date.now()<_mapDeadline){
+          requestAnimationFrame(_tryInitMap); // reintentar en el próximo frame
+        }
+      }
+      requestAnimationFrame(_tryInitMap);
     }
   }
 }
@@ -4177,12 +4179,11 @@ async function openPersonalRecord(){
   // Mostrar cargando mientras bajamos datos
   const grid=document.getElementById('pr-cal-grid');
   if(grid)grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text4);font-size:12px;padding:24px 0;letter-spacing:.3px">⏳ Cargando registros...</div>';
-  // Descargar registros desde Supabase si hay conexión
-  if(supabaseAvailable){
-    await fetchRecordsFromSupabase();
-  }
+  // Intentar conectar a Supabase si no está disponible aún
+  if(!supabaseAvailable) await checkSupabaseConnection();
+  // Descargar historial completo desde Supabase (necesario si el app fue reinstalado)
+  if(supabaseAvailable) await fetchRecordsFromSupabase();
   // SIEMPRE recargar allRecords desde IndexedDB (con o sin Supabase)
-  // para que el calendario muestre registros locales aunque el sync falle
   allRecords=await getAllRecords();
   renderPrCalendar();
   renderPrWeeks();
