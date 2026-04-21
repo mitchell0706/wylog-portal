@@ -2635,8 +2635,17 @@ function toggleRgMap(rid,lat,lng){
             iconSize:[16,16],iconAnchor:[8,8]
           });
           L.marker([lat,lng],{icon}).addTo(map);
-          // Invalidar tamaño después de que el CSS se haya aplicado
-          setTimeout(()=>map.invalidateSize(),200);
+          // Llamar invalidateSize varias veces para cubrir la animación de apertura
+          [100,250,450,700].forEach(ms=>setTimeout(()=>{
+            map.invalidateSize();
+            map.setView([lat,lng],17);
+          },ms));
+          // ResizeObserver: re-centra el mapa cuando el contenedor termina de expandirse
+          if(window.ResizeObserver){
+            const ro=new ResizeObserver(()=>{map.invalidateSize();map.setView([lat,lng],17);});
+            ro.observe(mapDiv);
+            setTimeout(()=>ro.disconnect(),2000); // dejar de observar tras 2s
+          }
         }catch(e){console.warn('Leaflet init error:',e);}
       },50);
     }
