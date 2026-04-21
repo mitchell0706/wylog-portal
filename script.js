@@ -1965,7 +1965,11 @@ async function proceedAfterOsha(){
 // ============================================================
 // FINALIZAR MARCACION — con firma SHA-256
 // ============================================================
+let _marcandoEnProceso=false; // guard anti-doble tap / doble ejecución
+
 async function finalizarMarcacion(){
+  if(_marcandoEnProceso)return; // bloquear doble ejecución
+  _marcandoEnProceso=true;
   showLoader('Registrando '+pendingTipo+'...');
   const now=new Date();const today=getTodayKey();
   const record={
@@ -2002,6 +2006,7 @@ async function finalizarMarcacion(){
     }
   }
   hideLoader();
+  _marcandoEnProceso=false; // liberar guard
   updateDrawerStats();
   await updateButtonStates(c);
   await loadTodayHistory();
@@ -2710,6 +2715,8 @@ function getLastActivityTs(usuario){
 
 async function renderAdminMap(){
   const el=document.getElementById('admin-map-list');if(!el)return;
+  // Recargar SIEMPRE desde IndexedDB para tener el estado más actualizado
+  allRecords=await getAllRecords();
   const empKeys=Object.keys(employees).filter(u=>u!==ADMIN_USER);
   if(!empKeys.length){el.innerHTML='<div class="live-empty">Sin empleados registrados</div>';return;}
   const active=[];// Solo trabajadores ACTIVOS ahora mismo (sin Salida)
@@ -3483,12 +3490,12 @@ function renderReport(){
     </label>
     <div class="td-av" style="flex-shrink:0">${ini}</div>
     <div class="pay-name">${nombre}</div>
-    <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-      ${fromVal&&toVal?`<button class="pay-paid-btn ${alreadyPaid?'paid':'pending'}" onclick="event.stopPropagation();toggleEmpPaid('${u}','${fromVal}','${toVal}')" title="${alreadyPaid?'Toca para desmarcar':'Toca para marcar como pagado'}">${alreadyPaid?'✓ Pagado':'⏳ Pendiente'}</button>`:''}
-      ${hasOT?'<span class="ot-badge">OT</span>':''}
-      ${d.oshaTotal>0?`<span style="background:rgba(0,0,0,0.3);border:1px solid ${oshaColor}44;border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;color:${oshaColor}" title="OSHA checklist confirmado">🛡️ ${oshaStr}</span>`:''}
-      <div class="pay-days">${diasCount} día${diasCount!==1?'s':''}</div>
-    </div>
+    <div class="pay-days" style="flex-shrink:0">${diasCount} día${diasCount!==1?'s':''}</div>
+  </div>
+  <div class="pay-badges-row">
+    ${fromVal&&toVal?`<button class="pay-paid-btn ${alreadyPaid?'paid':'pending'}" onclick="event.stopPropagation();toggleEmpPaid('${u}','${fromVal}','${toVal}')" title="${alreadyPaid?'Toca para desmarcar':'Toca para marcar como pagado'}">${alreadyPaid?'✓ Pagado':'⏳ Pendiente'}</button>`:''}
+    ${hasOT?'<span class="ot-badge">OT</span>':''}
+    ${d.oshaTotal>0?`<span style="background:rgba(0,0,0,0.3);border:1px solid ${oshaColor}44;border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;color:${oshaColor}" title="OSHA checklist confirmado">🛡️ ${oshaStr}</span>`:''}
   </div>
   <div class="pay-hrs-row">
     <div class="pay-hrs-item"><span class="pay-hrs-lbl">Hrs brutas</span><span class="pay-hrs-val">${d.horasBruto.toFixed(1)}h</span></div>
@@ -4100,7 +4107,11 @@ function switchTab(tab){
   if(tab==='dashboard')renderDashboard();
   if(tab==='bitacora')renderBitacora();
   if(tab==='registros')renderAdminRecords();
-  if(tab==='mapa')renderAdminMap();
+  if(tab==='mapa'){
+    renderAdminMap(); // render inmediato con datos locales
+    // Luego refrescar desde Supabase y re-render si hay conexión
+    if(supabaseAvailable) fetchRecordsFromSupabase().then(()=>renderAdminMap());
+  }
   if(tab==='reporte'){
     setRptQuick('semana');renderPaidHistory();
     if(supabaseAvailable){
@@ -4532,6 +4543,8 @@ function cancelarSalida(){
 }
 
 async function finalizarMarcacionConArea(area){
+  if(_marcandoEnProceso)return; // bloquear doble tap
+  _marcandoEnProceso=true;
   showLoader('Registrando Salida...');
   const now = new Date();
   const today = getTodayKey();
@@ -4627,6 +4640,7 @@ async function finalizarMarcacionConArea(area){
   }
 
   hideLoader();
+  _marcandoEnProceso=false; // liberar guard
   updateDrawerStats();
   await updateButtonStates(c);
   await loadTodayHistory();
