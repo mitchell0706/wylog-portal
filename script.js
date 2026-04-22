@@ -1453,6 +1453,7 @@ async function fetchEmployees(){
             pass:local.pass||emp.pass_hash||'',
             pass_hash:emp.pass_hash||local.pass_hash||'',
             deviceId:local.deviceId||emp.device_id||null,
+            deviceModel:emp.device_model||local.deviceModel||'', // ← modelo del teléfono desde Supabase
             createdAt:emp.created_at||local.createdAt,
             isAsistente: emp.is_asistente===true||emp.is_asistente==='true'||local.isAsistente||false,
             avatarData: local.avatarData||null,
@@ -2628,28 +2629,20 @@ function toggleRgMap(rid,lat,lng){
     // Inicializar mapa Leaflet la primera vez que se abre
     const mapDiv=document.getElementById('rg-mapbox-'+rid);
     if(mapDiv&&typeof L!=='undefined'){
-      // Esperar hasta que el contenedor tenga dimensiones reales (la animación CSS puede tardar)
-      const _mapDeadline=Date.now()+2500;
-      function _tryInitMap(){
-        const rect=mapDiv.getBoundingClientRect();
-        if(rect.width>20&&rect.height>20){
-          try{
-            const map=L.map(mapDiv,{zoomControl:true,attributionControl:false}).setView([lat,lng],17);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-            const icon=L.divIcon({
-              className:'',
-              html:`<div style="width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3)"></div>`,
-              iconSize:[16,16],iconAnchor:[8,8]
-            });
-            L.marker([lat,lng],{icon}).addTo(map);
-            // Un invalidateSize final para asegurar renderizado correcto
-            setTimeout(()=>{map.invalidateSize();map.setView([lat,lng],17);},250);
-          }catch(e){console.warn('Leaflet init error:',e);}
-        }else if(Date.now()<_mapDeadline){
-          requestAnimationFrame(_tryInitMap); // reintentar en el próximo frame
-        }
-      }
-      requestAnimationFrame(_tryInitMap);
+      // El contenedor usa display:none→block (sin animación), solo esperamos un tick de reflow
+      setTimeout(()=>{
+        try{
+          const map=L.map(mapDiv,{zoomControl:true,attributionControl:false}).setView([lat,lng],17);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+          const icon=L.divIcon({
+            className:'',
+            html:`<div style="width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3)"></div>`,
+            iconSize:[16,16],iconAnchor:[8,8]
+          });
+          L.marker([lat,lng],{icon}).addTo(map);
+          setTimeout(()=>{map.invalidateSize();map.setView([lat,lng],17);},150);
+        }catch(e){console.warn('Leaflet init error:',e);}
+      },50);
     }
   }
 }
@@ -4131,8 +4124,11 @@ function switchTab(tab){
   if(tab==='registros')renderAdminRecords();
   if(tab==='mapa'){
     renderAdminMap(); // render inmediato con datos locales
-    // Luego refrescar desde Supabase y re-render si hay conexión
-    if(supabaseAvailable) fetchRecordsFromSupabase().then(()=>renderAdminMap());
+    // Siempre verificar conexión y descargar registros frescos de Supabase
+    (async()=>{
+      if(!supabaseAvailable) await checkSupabaseConnection();
+      if(supabaseAvailable){ await fetchRecordsFromSupabase(); renderAdminMap(); }
+    })();
   }
   if(tab==='reporte'){
     setRptQuick('semana');renderPaidHistory();
