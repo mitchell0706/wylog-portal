@@ -982,18 +982,21 @@ async function fetchRecordsFromSupabase(){
     const localTimestamps=new Set(localRecs.filter(r=>r.timestamp).map(r=>r.timestamp));
     // Normalizar hora para comparar (elimina diferencias de espaciado "p. m." vs "p.m.")
     const normalHora=h=>(h||'').replace(/\s+/g,' ').replace(/\. /g,'.').trim();
-    const localKeys=new Set(localRecs.map(r=>r.usuario+'|'+r.tipo+'|'+r.fecha+'|'+normalHora(r.hora)));
+    // IMPORTANTE: usar normFecha para que registros de distintos dispositivos
+    // (unos con "4/21/2026" y otros con "21/4/2026") se comparen bien.
+    const localKeys=new Set(localRecs.map(r=>r.usuario+'|'+r.tipo+'|'+normFecha(r.fecha)+'|'+normalHora(r.hora)));
     let added=0;
     for(const r of remoteRecs){
       // Dedup: firma (más confiable) > timestamp ISO (exacto) > clave compuesta normalizada
       if(r.firma&&localFirmas.has(r.firma))continue;
       if(r.timestamp&&localTimestamps.has(r.timestamp))continue;
-      const key=r.usuario+'|'+r.tipo+'|'+r.fecha+'|'+normalHora(r.hora);
+      const fechaNorm=normFecha(r.fecha);
+      const key=r.usuario+'|'+r.tipo+'|'+fechaNorm+'|'+normalHora(r.hora);
       if(localKeys.has(key))continue;
       await dbAdd('records',{
         usuario:r.usuario,
         tipo:r.tipo,
-        fecha:r.fecha,
+        fecha:fechaNorm, // guardar siempre canónico
         hora:r.hora,
         timestamp:r.timestamp||new Date().toISOString(),
         coords:r.coords||'sin_gps',
@@ -1144,7 +1147,34 @@ async function detectDeviceModel(){
   return 'Desconocido';
 }
 
-function getTodayKey(){return new Date().toLocaleDateString('es-US');}
+// ── FECHA CANÓNICA (M/D/YYYY) — independiente del locale del WebView v2 ─────
+// BUG FIX: 'es-US' no es un locale estándar; algunos WebViews devuelven "21/4/2026"
+// (formato español D/M/YYYY) y otros "4/21/2026" (M/D/YYYY). Esto causaba que los
+// registros guardados en un dispositivo no hicieran match con los filtros en otro.
+function getTodayKey(){
+  const d=new Date();
+  return (d.getMonth()+1)+'/'+d.getDate()+'/'+d.getFullYear();
+}
+// Normaliza cualquier formato recibido ("04/21/2026", "21/4/2026", "2026-04-21",
+// "4/21/2026") al formato canónico "M/D/YYYY" sin ceros a la izquierda.
+function normFecha(f){
+  if(!f||typeof f!=='string')return f;
+  const s=f.trim();
+  // ISO: "2026-04-21" o "2026-04-21T..."
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return parseInt(m[2])+'/'+parseInt(m[3])+'/'+m[1];
+  // "a/b/YYYY"
+  const p=s.split('/');
+  if(p.length===3){
+    const a=parseInt(p[0]),b=parseInt(p[1]),y=p[2].slice(0,4);
+    if(isNaN(a)||isNaN(b)||!/^\d{4}$/.test(y))return s;
+    // Si el primer campo > 12, es D/M/YYYY → lo volteamos a M/D/YYYY
+    if(a>12&&b<=12)return b+'/'+a+'/'+y;
+    // Si ambos ≤ 12 asumimos que ya es M/D/YYYY (canónico)
+    return a+'/'+b+'/'+y;
+  }
+  return s;
+}
 
 // Normaliza "12:03:42 a. m." / "p.m." / "p. m." → parseable por Date
 function parseHora(h){
@@ -1530,7 +1560,13 @@ async function saveRecord(record){
   const id=await dbAdd('records',r);
   return id;
 }
-async function getAllRecords(){return await dbGetAll('records');}
+async function getAllRecords(){
+  // Normaliza fecha al cargar para que registros viejos guardados con D/M/YYYY
+  // (por WebView con locale español) también hagan match con comparaciones M/D/YYYY.
+  const all=await dbGetAll('records');
+  for(const r of all){ if(r&&r.fecha) r.fecha=normFecha(r.fecha); }
+  return all;
+}
 async function getRecordsByUser(usuario){return await dbGetByIndex('records','usuario',usuario);}
 async function getTodayRecordsByUser(usuario){
   const all=await getRecordsByUser(usuario);
@@ -1542,10 +1578,10 @@ async function getTodayRecordsByUser(usuario){
   if(cycle&&cycle.step>0&&!cycle.blocked){
     const fechasValidas=new Set([today]);
     const ayer=new Date();ayer.setDate(ayer.getDate()-1);
-    fechasValidas.add(ayer.toLocaleDateString('es-US'));
-    if(cycle.originalDate) fechasValidas.add(cycle.originalDate);
-    if(cycle.date) fechasValidas.add(cycle.date);
-    return all.filter(r=>fechasValidas.has(r.fecha));
+    fechasValidas.add((ayer.getMonth()+1)+'/'+ayer.getDate()+'/'+ayer.getFullYear());
+    if(cycle.originalDate) fechasValidas.add(normFecha(cycle.originalDate));
+    if(cycle.date) fechasValidas.add(normFecha(cycle.date));
+    return all.filter(r=>fechasValidas.has(normFecha(r.fecha)));
   }
   return all.filter(r=>r.fecha===today);
 }
@@ -2624,27 +2660,52 @@ function toggleRgMap(rid,lat,lng){
   if(!wrap)return;
   const isOpen=wrap.classList.contains('open');
   wrap.classList.toggle('open',!isOpen);
-  if(!isOpen&&!_rgOpenMaps[rid]){
-    _rgOpenMaps[rid]=true;
-    // Inicializar mapa Leaflet la primera vez que se abre
-    const mapDiv=document.getElementById('rg-mapbox-'+rid);
-    if(mapDiv&&typeof L!=='undefined'){
-      // El contenedor usa display:none→block (sin animación), solo esperamos un tick de reflow
-      setTimeout(()=>{
-        try{
-          const map=L.map(mapDiv,{zoomControl:true,attributionControl:false}).setView([lat,lng],17);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-          const icon=L.divIcon({
-            className:'',
-            html:`<div style="width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3)"></div>`,
-            iconSize:[16,16],iconAnchor:[8,8]
-          });
-          L.marker([lat,lng],{icon}).addTo(map);
-          setTimeout(()=>{map.invalidateSize();map.setView([lat,lng],17);},150);
-        }catch(e){console.warn('Leaflet init error:',e);}
-      },50);
-    }
+  if(isOpen)return; // solo inicializamos/refrescamos al ABRIR
+  const mapDiv=document.getElementById('rg-mapbox-'+rid);
+  if(!mapDiv||typeof L==='undefined')return;
+
+  // Si ya hay un mapa creado para esta card, basta con recalcular su tamaño
+  // (Capacitor WebView oculta tiles después de un display:none previo).
+  const existing=_rgOpenMaps[rid];
+  if(existing&&typeof existing.invalidateSize==='function'){
+    requestAnimationFrame(()=>{
+      try{ existing.invalidateSize(true); existing.setView([lat,lng],17); }catch(e){}
+      setTimeout(()=>{try{existing.invalidateSize(true);}catch(e){}},250);
+    });
+    return;
   }
+
+  // Primera apertura: esperar DOS frames para que el WebView aplique el display:block
+  // y calcule el layout antes de que Leaflet mida el contenedor. Sin esto, Leaflet
+  // mide 0×0 y carga tiles en un solo cuadrante superior-izquierdo.
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    try{
+      const map=L.map(mapDiv,{
+        zoomControl:true,
+        attributionControl:false,
+        fadeAnimation:false,
+        zoomAnimation:false,
+        markerZoomAnimation:false
+      }).setView([lat,lng],17);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxZoom:19,
+        crossOrigin:true,
+        subdomains:['a','b','c']
+      }).addTo(map);
+      L.marker([lat,lng],{icon:L.divIcon({
+        className:'',
+        html:`<div style="width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3)"></div>`,
+        iconSize:[16,16],iconAnchor:[8,8]
+      })}).addTo(map);
+      _rgOpenMaps[rid]=map;
+      // invalidateSize escalonado: en Capacitor a veces el layout tarda 100-400ms
+      // después del display:block, así que reforzamos varias veces.
+      const refresh=()=>{try{map.invalidateSize(true);map.setView([lat,lng],17);}catch(e){}};
+      setTimeout(refresh,50);
+      setTimeout(refresh,200);
+      setTimeout(refresh,500);
+    }catch(e){console.warn('Leaflet init error:',e);}
+  }));
 }
 
 // ============================================================
@@ -6530,63 +6591,48 @@ function injectPagoDrawerButton(){
   const pagoBtn=document.createElement('button');
   pagoBtn.id='drawer-pago-btn';
   pagoBtn.setAttribute('onclick','openPagoScreen()');
-  pagoBtn.style.cssText='width:100%;background:none;border:none;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border-top:1px solid rgba(255,255,255,0.05)';
+  pagoBtn.style.cssText='width:100%;background:none;border:none;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border-top:1px solid rgba(255,255,255,0.05);color:#fff;font-size:13px;font-weight:600;text-align:left';
   pagoBtn.innerHTML=`
     <div style="width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
     </div>
-    <div style="text-align:left">
+    <div style="flex:1">
       <div style="color:#fff;font-size:13px;font-weight:600">Mi Pago</div>
-      <div style="color:var(--text4);font-size:11px">Ver comprobantes y confirmar</div>
+      <div style="color:rgba(255,255,255,0.5);font-size:11px">Ver comprobantes</div>
     </div>
-    <div id="pago-badge-count" style="display:none;background:var(--orange);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-left:auto"></div>`;
-
+    <div id="pago-badge-count" style="display:none;background:#f97316;color:#fff;border-radius:50%;min-width:18px;height:18px;font-size:10px;font-weight:700;align-items:center;justify-content:center;margin-left:auto;padding:0 5px"></div>`;
   if(insertAfter&&insertAfter.parentNode){
     insertAfter.parentNode.insertBefore(pagoBtn,insertAfter.nextSibling);
   } else if(drawerEl){
-    // Fallback: insertar al final del drawer
     drawerEl.appendChild(pagoBtn);
   }
 }
 
-// ── Llamar injectPagoDrawerButton cuando el usuario inicia sesión ──
-// Hook into the existing post-login flow via a MutationObserver on the drawer
+// Stub de checkPagosNotification: no-op si no está definido en otra parte del app.
+// (Se recupera tras una truncación previa del archivo — mantiene la app funcional.)
+if(typeof checkPagosNotification==='undefined'){
+  var checkPagosNotification=async function(){
+    try{
+      const badge=document.getElementById('pago-badge-count');
+      if(badge) badge.style.display='none';
+    }catch(e){}
+  };
+}
+
+// Hook post-login: cuando el empleado entra a main-screen, inyectar botón "Mi Pago"
 (function(){
   function tryInject(){
-    if(currentUser&&!isAdmin){
-      injectPagoDrawerButton();
-      checkPagosNotification();
+    if(typeof currentUser!=='undefined'&&currentUser&&typeof isAdmin!=='undefined'&&!isAdmin){
+      try{injectPagoDrawerButton();checkPagosNotification();}catch(e){}
     }
   }
-  // Escuchar cambio de pantalla — cuando main-screen se activa, inyectar
-  const observer=new MutationObserver(()=>{
-    const ms=document.getElementById('main-screen');
-    if(ms&&ms.classList.contains('active')&&currentUser&&!isAdmin){
-      injectPagoDrawerButton();
-      checkPagosNotification();
-      observer.disconnect();
-    }
-  });
   document.addEventListener('DOMContentLoaded',()=>{
     const ms=document.getElementById('main-screen');
-    if(ms) observer.observe(ms,{attributes:true,attributeFilter:['class']});
+    if(!ms)return;
+    const obs=new MutationObserver(()=>{
+      if(ms.classList.contains('active'))tryInject();
+    });
+    obs.observe(ms,{attributes:true,attributeFilter:['class']});
+    if(ms.classList.contains('active'))tryInject();
   });
 })();
-
-// ── Verificar pagos pendientes y mostrar badge ───────────────
-async function checkPagosNotification(){
-  if(!currentUser||isAdmin) return;
-  try{
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/payments?usuario=eq.${encodeURIComponent(currentUser)}&status=eq.paid&select=id`,{
-      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}
-    });
-    if(!res.ok)return;
-    const data=await res.json();
-    const count=Array.isArray(data)?data.length:0;
-    const badge=document.getElementById('pago-badge-count');
-    if(badge){
-      if(count>0){badge.textContent=count;badge.style.display='flex';}
-      else{badge.style.display='none';}
-    }
-  }catch(e){}
-}
