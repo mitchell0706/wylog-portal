@@ -497,8 +497,8 @@ select:focus{border-color:rgba(16,185,129,0.4)}
 .rg-gps-btn{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:3px 7px;font-size:11px;cursor:pointer;color:#10b981;flex-shrink:0;-webkit-user-select:none;user-select:none}
 .rg-gps-btn:active{opacity:.7}
 /* Mapa GPS desplegable */
-.rg-map-wrap{max-height:0;overflow:hidden;transition:max-height .4s ease;border-top:0 solid var(--border)}
-.rg-map-wrap.open{max-height:340px;border-top-width:1px}
+.rg-map-wrap{display:none;border-top:1px solid var(--border)}
+.rg-map-wrap.open{display:block}
 .rg-map-header{display:flex;align-items:center;justify-content:space-between;padding:8px 13px}
 .rg-map-coords{font-size:10px;font-family:var(--mono);color:var(--text3)}
 .rg-maps-link{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--blue);text-decoration:none;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);padding:4px 9px;border-radius:20px}
