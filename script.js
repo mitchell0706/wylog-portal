@@ -2437,15 +2437,20 @@ async function buildWorkerCard(username){
 // ADMIN — DASHBOARD
 // ============================================================
 function renderDashboard(){
-  const today=getTodayKey();const todayRecs=allRecords.filter(r=>r.fecha===today);
-  const presentesSet=new Set(todayRecs.filter(r=>r.tipo==='Entrada').map(r=>r.usuario));
+  const today=getTodayKey();
+  // Filtro estricto: solo registros cuya fecha coincide exactamente con HOY
+  // (normFecha ya corrió sobre allRecords al cargarlos, así que el formato es M/D/YYYY)
+  const todayRecs=allRecords.filter(r=>normFecha(r.fecha)===today);
+  const entradasSet=new Set(todayRecs.filter(r=>r.tipo==='Entrada').map(r=>r.usuario));
   const salidasSet=new Set(todayRecs.filter(r=>r.tipo==='Salida').map(r=>r.usuario));
   const lunchTodaySet=new Set(todayRecs.filter(r=>r.tipo==='Inicio Lunch').map(r=>r.usuario));
   const finLunchSet=new Set(todayRecs.filter(r=>r.tipo==='Fin Lunch').map(r=>r.usuario));
   const enLunchAhoraSet=new Set([...lunchTodaySet].filter(u=>!finLunchSet.has(u)));
+  // "Presentes AHORA" = entraron hoy y aún no salieron (cuenta real de gente en el trabajo)
+  const presentesAhora=[...entradasSet].filter(u=>!salidasSet.has(u));
   const kpis=document.getElementById('dash-kpis');
   if(kpis)kpis.innerHTML=`
-    <div class="kpi-card green"><div class="kpi-lbl">Presentes hoy</div><div class="kpi-val">${presentesSet.size}</div><div class="kpi-sub">marcaron entrada</div></div>
+    <div class="kpi-card green"><div class="kpi-lbl">Presentes ahora</div><div class="kpi-val">${presentesAhora.length}</div><div class="kpi-sub">${presentesAhora.length>0?'en el trabajo':'nadie está marcado'} · ${entradasSet.size} entraron hoy</div></div>
     <div class="kpi-card orange"><div class="kpi-lbl">${enLunchAhoraSet.size>0?'En lunch ahora':'Lunch hoy'}</div><div class="kpi-val">${enLunchAhoraSet.size>0?enLunchAhoraSet.size:lunchTodaySet.size}</div><div class="kpi-sub">${enLunchAhoraSet.size>0?'en descanso ahora':lunchTodaySet.size>0?'tomaron lunch hoy':'nadie tomó lunch'}</div></div>
     <div class="kpi-card blue"><div class="kpi-lbl">Salidas hoy</div><div class="kpi-val">${salidasSet.size}</div><div class="kpi-sub">terminaron jornada</div></div>
     <div class="kpi-card red"><div class="kpi-lbl">Sin sincronizar</div><div class="kpi-val">${allRecords.filter(r=>!r.synced_cloud).length}</div><div class="kpi-sub">${supabaseAvailable?'Subiendo...':'Sin internet'}</div></div>`;
@@ -2655,57 +2660,95 @@ async function saveEditRecord(){
   showToast('✓ Registro actualizado');
 }
 
+// ============================================================
+// VISTA PREVIA DEL MAPA — Implementación con TILES ESTÁTICOS (sin Leaflet)
+// ------------------------------------------------------------
+// Leaflet usa transform3d en los tiles y eso se corrompe en el WebView de
+// Android (Samsung S24, Honor, etc.) provocando tiles en un solo cuadrante.
+// Aquí usamos <img> directo con posicionamiento top/left en píxeles:
+// no hay transforms, el compositor nunca se rompe.
+// El botón "Abrir en Google Maps" sigue dando la interacción completa.
+// ============================================================
 function toggleRgMap(rid,lat,lng){
   const wrap=document.getElementById('rg-map-'+rid);
   if(!wrap)return;
   const isOpen=wrap.classList.contains('open');
   wrap.classList.toggle('open',!isOpen);
-  if(isOpen)return; // solo inicializamos/refrescamos al ABRIR
+  if(isOpen)return;
+
   const mapDiv=document.getElementById('rg-mapbox-'+rid);
-  if(!mapDiv||typeof L==='undefined')return;
+  if(!mapDiv)return;
 
-  // Si ya hay un mapa creado para esta card, basta con recalcular su tamaño
-  // (Capacitor WebView oculta tiles después de un display:none previo).
-  const existing=_rgOpenMaps[rid];
-  if(existing&&typeof existing.invalidateSize==='function'){
-    requestAnimationFrame(()=>{
-      try{ existing.invalidateSize(true); existing.setView([lat,lng],17); }catch(e){}
-      setTimeout(()=>{try{existing.invalidateSize(true);}catch(e){}},250);
-    });
-    return;
-  }
+  // Si ya está cargado, no volver a renderizar
+  if(mapDiv.dataset.mapLoaded==='1')return;
 
-  // Primera apertura: esperar DOS frames para que el WebView aplique el display:block
-  // y calcule el layout antes de que Leaflet mida el contenedor. Sin esto, Leaflet
-  // mide 0×0 y carga tiles en un solo cuadrante superior-izquierdo.
+  // Esperar DOS frames para que el WebView aplique display:block
+  // y calcule el layout antes de medir clientWidth/clientHeight.
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     try{
-      const map=L.map(mapDiv,{
-        zoomControl:true,
-        attributionControl:false,
-        fadeAnimation:false,
-        zoomAnimation:false,
-        markerZoomAnimation:false
-      }).setView([lat,lng],17);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-        maxZoom:19,
-        crossOrigin:true,
-        subdomains:['a','b','c']
-      }).addTo(map);
-      L.marker([lat,lng],{icon:L.divIcon({
-        className:'',
-        html:`<div style="width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3)"></div>`,
-        iconSize:[16,16],iconAnchor:[8,8]
-      })}).addTo(map);
-      _rgOpenMaps[rid]=map;
-      // invalidateSize escalonado: en Capacitor a veces el layout tarda 100-400ms
-      // después del display:block, así que reforzamos varias veces.
-      const refresh=()=>{try{map.invalidateSize(true);map.setView([lat,lng],17);}catch(e){}};
-      setTimeout(refresh,50);
-      setTimeout(refresh,200);
-      setTimeout(refresh,500);
-    }catch(e){console.warn('Leaflet init error:',e);}
+      renderStaticMap(mapDiv,parseFloat(lat),parseFloat(lng));
+      mapDiv.dataset.mapLoaded='1';
+    }catch(e){console.warn('renderStaticMap error:',e);}
   }));
+}
+
+function renderStaticMap(mapDiv,lat,lng){
+  if(!isFinite(lat)||!isFinite(lng))return;
+  const zoom=16;
+  const n=Math.pow(2,zoom);
+  const latRad=lat*Math.PI/180;
+  const xTile=(lng+180)/360*n;
+  const yTile=(1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2*n;
+  const xInt=Math.floor(xTile);
+  const yInt=Math.floor(yTile);
+  const xFrac=xTile-xInt;
+  const yFrac=yTile-yInt;
+
+  const cw=mapDiv.clientWidth||640;
+  const ch=mapDiv.clientHeight||220;
+
+  // Limpiar contenido previo y preparar contenedor
+  mapDiv.innerHTML='';
+  mapDiv.style.position='relative';
+  mapDiv.style.overflow='hidden';
+  mapDiv.style.background='#1a2035';
+
+  // Capa interna 3×3 tiles (768×768px) offseteada para que el punto exacto
+  // (lat,lng) quede en el centro del contenedor visible.
+  const inner=document.createElement('div');
+  const centerPx=(1+xFrac)*256;
+  const centerPy=(1+yFrac)*256;
+  const offX=Math.round(cw/2-centerPx);
+  const offY=Math.round(ch/2-centerPy);
+  inner.style.cssText='position:absolute;left:'+offX+'px;top:'+offY+'px;width:768px;height:768px;pointer-events:none';
+
+  for(let dy=-1;dy<=1;dy++){
+    for(let dx=-1;dx<=1;dx++){
+      const tx=xInt+dx, ty=yInt+dy;
+      if(tx<0||ty<0||tx>=n||ty>=n)continue;
+      const img=document.createElement('img');
+      const sub=['a','b','c'][((tx+ty)%3+3)%3];
+      img.src='https://'+sub+'.tile.openstreetmap.org/'+zoom+'/'+tx+'/'+ty+'.png';
+      img.alt='';
+      img.decoding='async';
+      img.loading='eager';
+      img.style.cssText='position:absolute;left:'+((dx+1)*256)+'px;top:'+((dy+1)*256)+'px;width:256px;height:256px;display:block;filter:brightness(0.85) contrast(1.08) saturate(0.9)';
+      img.onerror=function(){this.style.visibility='hidden';};
+      inner.appendChild(img);
+    }
+  }
+  mapDiv.appendChild(inner);
+
+  // Marcador centrado en el contenedor (sin transform3d)
+  const marker=document.createElement('div');
+  marker.style.cssText='position:absolute;left:50%;top:50%;width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3);margin-left:-8px;margin-top:-8px;pointer-events:none;z-index:5';
+  mapDiv.appendChild(marker);
+
+  // Atribución OSM mínima (requerida por licencia)
+  const attr=document.createElement('div');
+  attr.textContent='© OpenStreetMap';
+  attr.style.cssText='position:absolute;bottom:2px;right:4px;font-size:9px;color:rgba(255,255,255,0.6);background:rgba(0,0,0,0.35);padding:1px 4px;border-radius:3px;pointer-events:none;z-index:6';
+  mapDiv.appendChild(attr);
 }
 
 // ============================================================
@@ -3656,7 +3699,58 @@ async function renderAdminSettings(){
         4. En script.js reemplaza SUPABASE_URL y SUPABASE_ANON_KEY
       </div>
     </div>`:''}
+    <div class="config-card" style="border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.06);margin-top:12px">
+      <div class="config-lbl" style="color:var(--red)">⚠ Zona de peligro — Formateo local</div>
+      <div style="color:var(--text3);font-size:12px;line-height:1.6;margin-top:6px">
+        Borra TODA la base de datos local de este teléfono (IndexedDB + caché).
+        Útil después de ejecutar <span style="color:var(--green)">format_reset.sql</span> + <span style="color:var(--green)">seed_test_data.sql</span> en Supabase para empezar desde cero sin reinstalar la APK.
+        <br><br>
+        <b style="color:var(--red)">No afecta</b> Supabase, solo los datos guardados en este teléfono.
+      </div>
+      <div style="margin-top:10px">
+        <button onclick="factoryResetLocal()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:8px;padding:10px 14px;color:var(--red);font-size:13px;cursor:pointer;font-family:var(--font);font-weight:700">🗑 Formatear datos locales</button>
+      </div>
+    </div>
   `;
+}
+
+// ============================================================
+// FORMATEO LOCAL DE FÁBRICA — solo admin
+// Borra IndexedDB + caches + localStorage de este teléfono.
+// No toca Supabase (eso lo hace format_reset.sql en el SQL Editor).
+// ============================================================
+async function factoryResetLocal(){
+  if(!(isAdmin||currentUser===ADMIN_USER)){
+    showToast('⛔ Solo el admin puede formatear');return;
+  }
+  const confirmText=prompt('Esto BORRA toda la base de datos local de este teléfono.\n\nNo se puede deshacer. Escribe FORMATEAR para confirmar:');
+  if(confirmText!=='FORMATEAR'){showToast('Cancelado');return;}
+  try{
+    showLoader('Formateando datos locales…');
+    try{if(db&&db.close)db.close();}catch(e){}
+    await new Promise((resolve)=>{
+      const req=indexedDB.deleteDatabase('SecureCheckPro');
+      req.onsuccess=()=>resolve();
+      req.onerror=()=>resolve();
+      req.onblocked=()=>resolve();
+      setTimeout(resolve,3000);
+    });
+    try{localStorage.clear();}catch(e){}
+    try{sessionStorage.clear();}catch(e){}
+    try{
+      if('caches' in window){
+        const keys=await caches.keys();
+        await Promise.all(keys.map(k=>caches.delete(k)));
+      }
+    }catch(e){}
+    hideLoader();
+    alert('✓ Datos locales borrados.\n\nLa app se reiniciará ahora.');
+    setTimeout(()=>{try{location.reload(true);}catch(e){location.reload();}},300);
+  }catch(err){
+    hideLoader();
+    console.error('factoryResetLocal error:',err);
+    showToast('❌ Error al formatear: '+(err&&err.message||err));
+  }
 }
 
 // ============================================================
@@ -5828,7 +5922,23 @@ async function renderProyectos(){
 function formatFechaDisplay(dateStr){
   if(!dateStr)return '—';
   try{
-    const d=new Date(dateStr+'T12:00:00');
+    const s=String(dateStr).trim();
+    let d;
+    // ISO YYYY-MM-DD (input type=date o seed nuevo)
+    let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(m){
+      d=new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3]),12,0,0);
+    } else {
+      // MM/DD/YYYY o M/D/YYYY (seed legacy / app normalizada)
+      m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if(m){
+        d=new Date(parseInt(m[3]),parseInt(m[1])-1,parseInt(m[2]),12,0,0);
+      } else {
+        // último intento: delegar al parser nativo
+        d=new Date(s);
+      }
+    }
+    if(!d||isNaN(d.getTime()))return s;
     return d.toLocaleDateString('es-US',{month:'short',day:'numeric',year:'numeric'});
   }catch(e){return dateStr;}
 }
@@ -6260,8 +6370,11 @@ async function exportarProyectoPDF(id){
 
   hideLoader();
   const filename='Proyecto_'+p.nombre.replace(/[^a-z0-9]/gi,'_')+'_'+new Date().toISOString().slice(0,10)+'.pdf';
-  doc.save(filename);
-  showToast('✓ PDF exportado');
+  // Usa el mismo flujo que Reportes: arraybuffer + downloadFileNative
+  // → en APK guarda en /Descargas vía MainActivity DownloadListener
+  // → en web dispara share sheet o descarga Blob
+  const pdfArrayBuffer=doc.output('arraybuffer');
+  await downloadFileNative(filename,'application/pdf',pdfArrayBuffer);
 }
 
 // ── Preparar modal nuevo proyecto al abrirlo ─────────────────
