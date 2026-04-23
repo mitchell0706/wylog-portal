@@ -503,10 +503,21 @@ select:focus{border-color:rgba(16,185,129,0.4)}
 .rg-map-coords{font-size:10px;font-family:var(--mono);color:var(--text3)}
 .rg-maps-link{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--blue);text-decoration:none;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);padding:4px 9px;border-radius:20px}
 .rg-maps-link:active{opacity:.7}
-.rg-mapbox{height:220px;background:rgba(255,255,255,0.03);margin:0 10px 10px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
-/* Leaflet override para tema oscuro */
-.leaflet-container{background:#1a2035!important}
-.leaflet-tile{filter:brightness(0.85) contrast(1.1) saturate(0.9)}
+/* Contenedor del mapa estático — dimensiones FIJAS.
+   Renderizamos tiles OSM con <img> posicionado por top/left en píxeles
+   (sin transform3d), lo que evita el bug de compositing del WebView de
+   Android (Samsung S24, Honor) donde Leaflet dejaba tiles en cuadrantes. */
+.rg-mapbox{
+  height:220px;
+  min-height:220px;
+  background:#1a2035;
+  margin:0 10px 10px;
+  border-radius:10px;
+  overflow:hidden;
+  border:1px solid var(--border);
+  position:relative;
+}
+.rg-mapbox img{display:block;max-width:none}
 
 /* ── NÓMINA / PAY CALCULATOR ── */
 .pay-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;width:100%;box-sizing:border-box;overflow:hidden}
