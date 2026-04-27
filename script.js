@@ -245,6 +245,7 @@ function toggleLang(){
 let _pendingResetUser=null;
 
 function resetEmpPassword(u){
+  if(!(isAdmin||currentUser===ADMIN_USER)){showToast('⛔ Solo el admin puede resetear contraseñas');return;}
   _pendingResetUser=u;
   const nm=document.getElementById('modal-reset-emp-name');
   if(nm) nm.textContent=u;
@@ -255,6 +256,7 @@ function resetEmpPassword(u){
 }
 
 async function confirmResetEmpPassword(){
+  if(!(isAdmin||currentUser===ADMIN_USER)){showToast('⛔ Solo el admin puede resetear contraseñas');return;}
   const u=_pendingResetUser;
   if(!u) return;
   const inp=document.getElementById('reset-pass-inp');
@@ -664,15 +666,29 @@ async function syncProyectoToSupabase(p){
 }
 
 async function syncFotoToSupabase(proySupabaseId,dataUrl,nota,usuario,hora,fecha){
-  if(!supabaseAvailable||!proySupabaseId)return false;
+  if(!supabaseAvailable||!proySupabaseId)return null;
   try{
     const compressed=await compressImageForSync(dataUrl);
+    // prefer=representation para recuperar el id de la fila creada (lo usamos
+    // para poder borrarla después desde el cliente si el admin la elimina).
     const r=await sbCall('/rest/v1/proyecto_fotos',{
-      method:'POST',prefer:'return=minimal',
+      method:'POST',prefer:'return=representation',
       body:JSON.stringify({proyecto_id:proySupabaseId,data_url:compressed,nota:nota||'',subido_por:usuario,hora,fecha})
     });
-    return r.ok||r.status===201;
-  }catch(e){console.warn('syncFotoToSupabase:',e);return false;}
+    if(r.ok||r.status===201){
+      try{ const d=await r.json(); return (Array.isArray(d)?d[0]?.id:d?.id)||null; }catch(_){return true;}
+    }
+    return null;
+  }catch(e){console.warn('syncFotoToSupabase:',e);return null;}
+}
+
+// Borra una foto en Supabase por su id. Solo admin debe llamarlo — UI lo gatea.
+async function deleteFotoSupabase(fotoSupabaseId){
+  if(!supabaseAvailable||!fotoSupabaseId)return false;
+  try{
+    const r=await sbCall('/rest/v1/proyecto_fotos?id=eq.'+encodeURIComponent(fotoSupabaseId),{method:'DELETE'});
+    return r.ok||r.status===204;
+  }catch(e){console.warn('deleteFotoSupabase:',e);return false;}
 }
 
 async function compressImageForSync(dataUrl,maxPx=800,quality=0.7){
@@ -1059,6 +1075,90 @@ async function forceSyncNow(){
   updateSyncStatus();
 }
 
+// ════════════════════════════════════════════════════════════════════
+// LIVE RENDER GUARD — Mantiene flujo de datos en vivo SIN romper UX
+// ════════════════════════════════════════════════════════════════════
+// Filosofía: el FETCH a Supabase nunca se detiene (datos siempre frescos
+// en memoria) — solo el RE-RENDER del DOM se difiere si el usuario está
+// interactuando (modal abierto, detalle de proyecto, input enfocado).
+// Cuando termina la interacción → flushPendingLiveUpdate() refresca el UI.
+// Esto es lo mismo que hacen Slack/Gmail/Notion: data fluye, UI espera.
+// ════════════════════════════════════════════════════════════════════
+let _pendingLiveUpdate=false;
+let _flushScheduled=false;
+
+function isUserInteracting(){
+  // 1. Cualquier modal abierto
+  if(document.querySelector('.modal-wrap.open'))return true;
+  // 2. Vista detalle de proyecto abierta
+  const proyDetail=document.getElementById('proy-detail-view');
+  if(proyDetail&&proyDetail.style.display&&proyDetail.style.display!=='none')return true;
+  // 3. Tarjeta de Registros expandida (mostrando entrada/salida/lunch del día)
+  //    O mapa inline abierto en cualquier registro
+  if(document.querySelector('#records-list .rg-detail.open'))return true;
+  if(document.querySelector('#records-list .rg-map-wrap.open'))return true;
+  // 4. Input/textarea/select enfocado en zona admin
+  const a=document.activeElement;
+  if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT')){
+    if(a.closest('#admin-panel')||a.closest('.modal-wrap'))return true;
+  }
+  // 5. Bandera explícita (para operaciones críticas como editar/guardar)
+  if(window._renderLocked)return true;
+  return false;
+}
+
+function showLiveUpdateBadge(){
+  let b=document.getElementById('live-update-badge');
+  if(!b){
+    b=document.createElement('div');
+    b.id='live-update-badge';
+    b.style.cssText='position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9998;background:rgba(16,185,129,0.95);color:#fff;padding:7px 14px;border-radius:20px;font-family:var(--font);font-size:11px;font-weight:700;box-shadow:0 4px 16px rgba(16,185,129,0.35);display:flex;align-items:center;gap:6px;cursor:pointer;backdrop-filter:blur(8px);transition:opacity .25s,transform .25s;opacity:0;letter-spacing:0.3px';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Datos nuevos · listos al cerrar';
+    b.onclick=()=>flushPendingLiveUpdate(true);
+    b.title='Toca para refrescar ahora';
+    document.body.appendChild(b);
+  }
+  requestAnimationFrame(()=>{b.style.opacity='1';b.style.transform='translateX(-50%) translateY(0)';});
+}
+
+function hideLiveUpdateBadge(){
+  const b=document.getElementById('live-update-badge');
+  if(b){b.style.opacity='0';b.style.transform='translateX(-50%) translateY(-10px)';setTimeout(()=>{if(b.parentNode)b.parentNode.removeChild(b);},300);}
+}
+
+function safeAdminRender(){
+  if(!isAdmin)return;
+  if(isUserInteracting()){
+    _pendingLiveUpdate=true;
+    showLiveUpdateBadge();
+    return;
+  }
+  doAdminRender();
+}
+
+function doAdminRender(){
+  try{
+    if(typeof renderDashboard==='function')renderDashboard();
+    if(typeof renderAdminRecords==='function')renderAdminRecords();
+    if(typeof renderAdminMap==='function')renderAdminMap();
+    if(document.getElementById('tab-empleados')?.classList.contains('active')&&typeof renderEmpList==='function')renderEmpList();
+  }catch(e){console.warn('doAdminRender:',e);}
+}
+
+function flushPendingLiveUpdate(force){
+  if(!_pendingLiveUpdate&&!force)return;
+  if(isUserInteracting()&&!force){
+    if(!_flushScheduled){
+      _flushScheduled=true;
+      setTimeout(()=>{_flushScheduled=false;flushPendingLiveUpdate();},300);
+    }
+    return;
+  }
+  _pendingLiveUpdate=false;
+  hideLiveUpdateBadge();
+  doAdminRender();
+}
+
 function startSyncSchedule(){
   clearInterval(syncInt);
   // Intentar sync inmediato al iniciar
@@ -1067,22 +1167,22 @@ function startSyncSchedule(){
       await processSyncQueue();
       if(isAdmin){
         await fetchRecordsFromSupabase();
-        renderDashboard();renderAdminRecords();renderAdminMap();
+        safeAdminRender();
       }
     }
     updateSyncStatus();
   });
-  // Sync cada 30 segundos para actualizaciones en tiempo real
+  // Sync cada 30 segundos — DATA FLUYE SIEMPRE, render se difiere si hay interacción
   syncInt=setInterval(async()=>{
     await checkSupabaseConnection();
     if(supabaseAvailable){
       await processSyncQueue();
       if(isAdmin){
+        // Estos fetch ALWAYS corren — el flujo de datos en vivo NO se detiene
         await fetchRecordsFromSupabase();
-        await fetchEmployees(); // Sincronizar empleados: refleja altas y bajas desde la web
-        renderDashboard();renderAdminRecords();renderAdminMap();
-        // Si la pestaña empleados está visible, actualizarla también
-        if(document.getElementById('tab-empleados')?.classList.contains('active')) renderEmpList();
+        await fetchEmployees();
+        // Solo el render se evalúa contra interacción del usuario
+        safeAdminRender();
       }
     }
     updateSyncStatus();
@@ -1308,7 +1408,7 @@ async function setupNativeBiometric(){
   }
   // Hacer una verificación de prueba para confirmar que responde
   if(statusEl)statusEl.textContent='Confirma tu identidad en el teléfono...';
-  const ok=await doNativeBiometricVerify('Activar SecureCheck Pro en este dispositivo');
+  const ok=await doNativeBiometricVerify('Activar Wylog en este dispositivo');
   if(ok){
     await updateEmployee(currentUser,{faceRegistered:true,biometricMethod:'native'});
     biometricReady=true;
@@ -1342,7 +1442,7 @@ async function doNativeBiometricVerify(reason){
     try{
       await NBio.verifyIdentity({
         reason:reason||'Verifica tu identidad para continuar',
-        title:'SecureCheck Pro',
+        title:'Wylog',
         subtitle:reason||'Verificación de identidad',
         description:'Usa tu huella dactilar o reconocimiento facial',
         negativeButtonText:'Cancelar',
@@ -1362,12 +1462,12 @@ async function doNativeBiometricVerify(reason){
     try{
       await plugin.authenticate({
         reason:reason||'Verifica tu identidad para continuar',
-        title:'SecureCheck Pro',
+        title:'Wylog',
         subtitle:'Usa tu huella o reconocimiento facial',
         description:'El mismo sistema que desbloquea tu teléfono',
         cancelTitle:'Cancelar',
         allowDeviceCredential:false,
-        androidTitle:'SecureCheck Pro',
+        androidTitle:'Wylog',
         androidSubtitle:reason||'Verificación de identidad',
         androidConfirmationRequired:false
       });
@@ -1390,7 +1490,7 @@ async function doNativeBiometricVerify(reason){
       }
       const credential=await navigator.credentials.create({
         publicKey:{challenge,
-          rp:{name:'SecureCheck Pro',id:window.location.hostname||'localhost'},
+          rp:{name:'Wylog',id:window.location.hostname||'localhost'},
           user:{id:new TextEncoder().encode(currentUser),name:currentUser,displayName:currentUser},
           pubKeyCredParams:[{alg:-7,type:'public-key'},{alg:-257,type:'public-key'}],
           authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required'},
@@ -1462,14 +1562,36 @@ async function fetchEmployees(){
         const remoteUsers=new Set(remoteEmps.map(e=>e.usuario));
 
         // ── BORRAR localmente empleados que ya no existen en Supabase ──
+        const deletedUsers=[];
         for(const localUser of Object.keys(employees)){
           if(!remoteUsers.has(localUser) && localUser!==ADMIN_USER){
             try{ await dbDelete('employees',localUser); }catch(e){}
             try{ await dbDelete('faceData',localUser); }catch(e){}
             try{ await dbDelete('cycleState',localUser); }catch(e){}
             delete employees[localUser];
+            deletedUsers.push(localUser);
           }
         }
+
+        // ── BORRAR registros HUÉRFANOS: usuarios que no existen en Supabase
+        // (ej. empleados de prueba que se borraron via format_reset.sql).
+        // Admin conservamos siempre. Esto elimina los registros fantasma
+        // que quedan en IndexedDB después de un formateo de Supabase.
+        try{
+          const allLocalRecs=await dbGetAll('records');
+          let orphansDeleted=0;
+          for(const r of allLocalRecs){
+            if(!r||!r.usuario)continue;
+            if(r.usuario===ADMIN_USER)continue;
+            if(!remoteUsers.has(r.usuario)){
+              try{ await dbDelete('records',r.id); orphansDeleted++; }catch(e){}
+            }
+          }
+          if(orphansDeleted>0){
+            console.log('✓ Eliminados',orphansDeleted,'registros huérfanos de usuarios borrados:',deletedUsers.join(', '));
+            try{ allRecords=await getAllRecords(); }catch(e){}
+          }
+        }catch(e){console.warn('Error limpiando registros huérfanos:',e);}
 
         // ── ACTUALIZAR / CREAR empleados que vienen de Supabase ──
         for(const emp of remoteEmps){
@@ -2460,7 +2582,13 @@ function renderDashboard(){
     const typeIcons={Entrada:'<svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>',Salida:'<svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>','Inicio Lunch':'<svg viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round"><path d="M3 11V3M7 11V3M5 11h16v2a8 8 0 01-16 0v-2z"/></svg>','Fin Lunch':'<svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/></svg>'};
     if(!todayRecs.length){timeline.innerHTML='<div style="color:var(--text4);font-size:13px;padding:8px 0">Sin actividad hoy</div>';return;}
     const sorted=[...todayRecs].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
-    timeline.innerHTML=sorted.slice(0,20).map(r=>`<div class="timeline-item"><div class="tl-dot" style="background:${typeColors[r.tipo]||'rgba(255,255,255,0.05)'}">${typeIcons[r.tipo]||''}</div><div style="flex:1"><div class="tl-name">${r.usuario.charAt(0).toUpperCase()+r.usuario.slice(1)}</div><div class="tl-detail">${r.tipo}${r.coords&&r.coords!=='sin_gps'?' · '+r.coords:''}</div></div><div class="tl-time">${r.hora}</div></div>`).join('');
+    timeline.innerHTML=sorted.slice(0,20).map(r=>{
+      const nombreSafe=escHtml((r.usuario||'').charAt(0).toUpperCase()+(r.usuario||'').slice(1));
+      const tipoSafe=escHtml(r.tipo||'');
+      const coordsSafe=r.coords&&r.coords!=='sin_gps'?' · '+escHtml(r.coords):'';
+      const horaSafe=escHtml(r.hora||'');
+      return `<div class="timeline-item"><div class="tl-dot" style="background:${typeColors[r.tipo]||'rgba(255,255,255,0.05)'}">${typeIcons[r.tipo]||''}</div><div style="flex:1"><div class="tl-name">${nombreSafe}</div><div class="tl-detail">${tipoSafe}${coordsSafe}</div></div><div class="tl-time">${horaSafe}</div></div>`;
+    }).join('');
   }
 }
 
@@ -2576,6 +2704,9 @@ function toggleRgCard(id){
   detail.classList.toggle('open',!open);
   const chev=document.getElementById(id+'-chev');
   if(chev)chev.style.transform=open?'':'rotate(180deg)';
+  // Si el usuario CERRÓ una tarjeta expandida y había updates en vivo diferidos,
+  // ahora es seguro refrescar (siempre que no haya otra interacción abierta)
+  if(open&&typeof flushPendingLiveUpdate==='function')setTimeout(flushPendingLiveUpdate,80);
 }
 
 // ── Admin: editar registro ───────────────────────────────────
@@ -2694,7 +2825,9 @@ function toggleRgMap(rid,lat,lng){
 
 function renderStaticMap(mapDiv,lat,lng){
   if(!isFinite(lat)||!isFinite(lng))return;
-  const zoom=16;
+  // layer: 'sat' (Esri World Imagery — carriles visibles) | 'street' (OSM)
+  const savedLayer=(typeof localStorage!=='undefined'&&localStorage.getItem('mapLayer'))||'sat';
+  const zoom=18; // zoom más profundo — permite ver carriles de autopista con satélite
   const n=Math.pow(2,zoom);
   const latRad=lat*Math.PI/180;
   const xTile=(lng+180)/360*n;
@@ -2722,21 +2855,34 @@ function renderStaticMap(mapDiv,lat,lng){
   const offY=Math.round(ch/2-centerPy);
   inner.style.cssText='position:absolute;left:'+offX+'px;top:'+offY+'px;width:768px;height:768px;pointer-events:none';
 
-  for(let dy=-1;dy<=1;dy++){
-    for(let dx=-1;dx<=1;dx++){
-      const tx=xInt+dx, ty=yInt+dy;
-      if(tx<0||ty<0||tx>=n||ty>=n)continue;
-      const img=document.createElement('img');
-      const sub=['a','b','c'][((tx+ty)%3+3)%3];
-      img.src='https://'+sub+'.tile.openstreetmap.org/'+zoom+'/'+tx+'/'+ty+'.png';
-      img.alt='';
-      img.decoding='async';
-      img.loading='eager';
-      img.style.cssText='position:absolute;left:'+((dx+1)*256)+'px;top:'+((dy+1)*256)+'px;width:256px;height:256px;display:block;filter:brightness(0.85) contrast(1.08) saturate(0.9)';
-      img.onerror=function(){this.style.visibility='hidden';};
-      inner.appendChild(img);
+  const buildTiles=(layer)=>{
+    inner.innerHTML='';
+    for(let dy=-1;dy<=1;dy++){
+      for(let dx=-1;dx<=1;dx++){
+        const tx=xInt+dx, ty=yInt+dy;
+        if(tx<0||ty<0||tx>=n||ty>=n)continue;
+        const img=document.createElement('img');
+        let tileUrl,imgFilter;
+        if(layer==='sat'){
+          // Esri World Imagery — alta resolución (carriles de autopista visibles a zoom 18-19)
+          tileUrl='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+zoom+'/'+ty+'/'+tx;
+          imgFilter='filter:contrast(1.05) saturate(1.15)';
+        }else{
+          const sub=['a','b','c'][((tx+ty)%3+3)%3];
+          tileUrl='https://'+sub+'.tile.openstreetmap.org/'+zoom+'/'+tx+'/'+ty+'.png';
+          imgFilter='filter:brightness(0.85) contrast(1.08) saturate(0.9)';
+        }
+        img.src=tileUrl;
+        img.alt='';
+        img.decoding='async';
+        img.loading='eager';
+        img.style.cssText='position:absolute;left:'+((dx+1)*256)+'px;top:'+((dy+1)*256)+'px;width:256px;height:256px;display:block;'+imgFilter;
+        img.onerror=function(){this.style.visibility='hidden';};
+        inner.appendChild(img);
+      }
     }
-  }
+  };
+  buildTiles(savedLayer);
   mapDiv.appendChild(inner);
 
   // Marcador centrado en el contenedor (sin transform3d)
@@ -2744,10 +2890,27 @@ function renderStaticMap(mapDiv,lat,lng){
   marker.style.cssText='position:absolute;left:50%;top:50%;width:16px;height:16px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,0.3);margin-left:-8px;margin-top:-8px;pointer-events:none;z-index:5';
   mapDiv.appendChild(marker);
 
-  // Atribución OSM mínima (requerida por licencia)
+  // Botón toggle satélite/callejero
+  let currentLayer=savedLayer;
+  const btnLayer=document.createElement('button');
+  btnLayer.textContent=currentLayer==='sat'?'🛣':'🛰';
+  btnLayer.title=currentLayer==='sat'?'Cambiar a callejero':'Cambiar a satélite';
+  btnLayer.style.cssText='position:absolute;right:8px;top:8px;width:34px;height:34px;background:rgba(15,23,42,0.9);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;font-size:17px;font-weight:700;line-height:1;padding:0;z-index:10;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+  btnLayer.onclick=(e)=>{
+    e.stopPropagation();e.preventDefault();
+    currentLayer=currentLayer==='sat'?'street':'sat';
+    try{localStorage.setItem('mapLayer',currentLayer);}catch(_){}
+    btnLayer.textContent=currentLayer==='sat'?'🛣':'🛰';
+    btnLayer.title=currentLayer==='sat'?'Cambiar a callejero':'Cambiar a satélite';
+    buildTiles(currentLayer);
+    attr.textContent=currentLayer==='sat'?'© Esri · Maxar':'© OpenStreetMap';
+  };
+  mapDiv.appendChild(btnLayer);
+
+  // Atribución según capa activa (licencia)
   const attr=document.createElement('div');
-  attr.textContent='© OpenStreetMap';
-  attr.style.cssText='position:absolute;bottom:2px;right:4px;font-size:9px;color:rgba(255,255,255,0.6);background:rgba(0,0,0,0.35);padding:1px 4px;border-radius:3px;pointer-events:none;z-index:6';
+  attr.textContent=currentLayer==='sat'?'© Esri · Maxar':'© OpenStreetMap';
+  attr.style.cssText='position:absolute;bottom:2px;right:4px;font-size:9px;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.45);padding:1px 4px;border-radius:3px;pointer-events:none;z-index:6';
   mapDiv.appendChild(attr);
 }
 
@@ -2904,6 +3067,7 @@ async function renderEmpList(){
 
 // Desvincular dispositivo de un empleado (permite que inicie sesión desde otro celular)
 async function unlinkDevice(u){
+  if(!(isAdmin||currentUser===ADMIN_USER)){showToast('⛔ Solo el admin puede desvincular dispositivos');return;}
   if(!employees[u]?.deviceId){showToast('Este empleado no tiene dispositivo vinculado');return;}
   const model=employees[u].deviceModel?` (${employees[u].deviceModel})`:'';
   if(!confirm(`¿Desvincular dispositivo de "${u}"${model}?\n\nEl empleado podrá iniciar sesión desde cualquier teléfono. El nuevo dispositivo quedará registrado automáticamente en su próximo login.`))return;
@@ -2925,6 +3089,7 @@ async function unlinkDevice(u){
 
 // Limpiar registros locales de un empleado (NO afecta Supabase ni backups)
 async function confirmClearLocalRecords(u){
+  if(!(isAdmin||currentUser===ADMIN_USER)){showToast('⛔ Solo el admin puede limpiar registros');return;}
   const allRecs=await getAllRecords();
   const count=allRecs.filter(r=>r.usuario===u).length;
   if(!count){showToast('No hay registros locales para '+u);return;}
@@ -2950,8 +3115,12 @@ async function clearLocalRecordsForUser(u){
   }catch(e){hideLoader();console.error('clearLocalRecordsForUser error:',e);showToast('Error al limpiar registros');}
 }
 async function addEmp(){
+  if(!(isAdmin||currentUser===ADMIN_USER)){showToast('⛔ Solo el admin puede crear empleados');return;}
   const u=document.getElementById('new-user').value.trim().toLowerCase();const p=document.getElementById('new-pass').value;
   if(!u||!p){showToast('Completa usuario y contraseña');return;}
+  // Validar que el username sea solo alfanumérico — previene XSS en onclick handlers y UI
+  if(!/^[a-z0-9_]{3,20}$/.test(u)){showToast('⚠ Usuario inválido: solo letras minúsculas, números y _ (3-20 caracteres)');return;}
+  if(p.length<4){showToast('⚠ Contraseña mínimo 4 caracteres');return;}
   if(u===ADMIN_USER){showToast('Nombre reservado');return;}
   if(employees[u]){showToast('Usuario ya existe');return;}
   showLoader(t('loading'));await createEmployee(u,p);hideLoader();
@@ -2961,11 +3130,13 @@ async function addEmp(){
 }
 let _pendingDelEmpUser=null;
 async function delEmp(u){
+  if(!(isAdmin||currentUser===ADMIN_USER)){showToast('⛔ Solo el admin puede borrar empleados');return;}
   _pendingDelEmpUser=u;
   const nm=document.getElementById('modal-del-emp-name');if(nm)nm.textContent=u;
   openModal('modal-del-emp');
 }
 async function confirmDelEmp(){
+  if(!(isAdmin||currentUser===ADMIN_USER)){showToast('⛔ Solo el admin puede borrar empleados');return;}
   const u=_pendingDelEmpUser;if(!u)return;
   _pendingDelEmpUser=null;
   closeModal('modal-del-emp');
@@ -3024,16 +3195,23 @@ function updateRptPdfBtn(){
 // ────────────────────────────────────────────────────────────────────────────
 
 function getEmpRate(u){
-  // Priority: employee record (synced from Supabase) → localStorage fallback
+  // Priority: localStorage (SIEMPRE síncrono y fresco) → employee record (async) → 0
+  // BUGFIX: antes se leía employees[u].hourlyRate primero, pero updateEmployee es async.
+  // Al teclear rápido, recalcPayCard leía el valor VIEJO del mapa en memoria (ej. al escribir "20",
+  // employees[u].hourlyRate todavía era 2 del tecleado anterior) y calculaba con rezago de 1 dígito.
+  const fromLS=parseFloat(localStorage.getItem('sc_rate_'+u)||'0');
+  if(fromLS>0) return fromLS;
   const fromEmp=parseFloat(employees[u]?.hourlyRate||0);
-  if(fromEmp>0) return fromEmp;
-  return parseFloat(localStorage.getItem('sc_rate_'+u)||'0');
+  return fromEmp>0?fromEmp:0;
 }
 function setEmpRate(u,rate){
   const r=parseFloat(rate)||0;
   localStorage.setItem('sc_rate_'+u,r);
   // Persist in IndexedDB employee record so it survives across sessions
   if(employees[u]){
+    // FIX race condition: actualizar el mapa en memoria SINCRÓNICAMENTE antes de la escritura async.
+    // Así recalcPayCard/getEmpRate inmediatos ven el valor nuevo.
+    employees[u].hourlyRate=r;
     updateEmployee(u,{hourlyRate:r});
     // Sync to Supabase (best-effort, ignore if column not yet added)
     if(supabaseAvailable&&r>0){
@@ -3356,25 +3534,251 @@ function applyRangoCustom(){
 function getPaidHistory(){try{return JSON.parse(localStorage.getItem('sc_paid_history')||'[]');}catch(e){return[];}}
 function savePaidHistory(arr){localStorage.setItem('sc_paid_history',JSON.stringify(arr));}
 
+// ════════════════════════════════════════════════════════════════════
+// MARCAR COMO PAGADO — Modal de selección (individual / grupal / todos)
+// Inserta en Supabase tabla `payments` para que el empleado lo vea en
+// "MIS PAGOS" y guarda copia en localStorage para el historial admin.
+// ════════════════════════════════════════════════════════════════════
 function markPeriodAsPaid(){
   const fromVal=document.getElementById('rpt-from')?.value;
   const toVal=document.getElementById('rpt-to')?.value;
   if(!fromVal||!toVal){showToast('Selecciona un rango de fechas primero');return;}
+  openMarkPaidModal(fromVal,toVal);
+}
+
+// Modal custom de confirmación para emisión de pagos (en vez de confirm() nativo)
+function showConfirmPayDialog(count,total){
+  return new Promise(resolve=>{
+    const cnt=document.getElementById('mcp-count');
+    const ttl=document.getElementById('mcp-total');
+    const sub=document.getElementById('mcp-sub');
+    if(cnt)cnt.textContent=count;
+    if(ttl)ttl.textContent='$'+total.toFixed(2);
+    if(sub)sub.textContent=count===1?'empleado':'empleados';
+    window._mcpResolve=(v)=>{closeModal('modal-confirm-pay');window._mcpResolve=null;resolve(v);};
+    openModal('modal-confirm-pay');
+  });
+}
+
+// Estado del modal: usuarios marcados para pagar
+let _markPaidUsers=new Set();
+
+function openMarkPaidModal(fromVal,toVal){
   const container=document.getElementById('rpt-pay-list');
   const cards=container?container.querySelectorAll('.pay-card'):[];
-  const history=getPaidHistory();
-  let count=0;
+  if(!cards.length){showToast('No hay empleados en este rango');return;}
+  // Reset selección: pre-checkear solo los pendientes (no pagados aún)
+  _markPaidUsers=new Set();
+  const rows=[];
   cards.forEach(card=>{
     const u=card.dataset.paycard;if(!u)return;
+    const nombre=u.charAt(0).toUpperCase()+u.slice(1);
+    const ini=u.substring(0,2).toUpperCase();
     const hrsEl=document.getElementById('pay-hrs-'+u);
     const totalEl=document.getElementById('pay-total-'+u);
+    const totalTxt=totalEl?totalEl.textContent.trim():'—';
     const hrs=parseFloat(hrsEl?.dataset?.hrs||0);
-    const total=totalEl?.textContent||'—';
-    history.unshift({usuario:u,from:fromVal,to:toVal,hrs:hrs.toFixed(2),total,paidAt:new Date().toISOString()});
-    count++;
+    const reg=parseFloat(hrsEl?.dataset?.reg||0);
+    const ot=parseFloat(hrsEl?.dataset?.ot||0);
+    const dt=parseFloat(hrsEl?.dataset?.dt||0);
+    const rate=getEmpRate(u);
+    const totalNum=rate>0?(reg*rate)+(ot*rate*1.5)+(dt*rate*2):0;
+    const alreadyPaid=isRangePaid(u,fromVal,toVal);
+    const noRate=rate<=0;
+    if(!alreadyPaid&&!noRate)_markPaidUsers.add(u);
+    rows.push({u,nombre,ini,hrs,reg,ot,dt,rate,totalTxt,totalNum,alreadyPaid,noRate});
   });
-  savePaidHistory(history);
-  showToast('✓ Período marcado como PAGADO para '+count+' empleado(s)');
+  const totalSelMonto=rows.filter(r=>_markPaidUsers.has(r.u)).reduce((s,r)=>s+r.totalNum,0);
+  const html=`
+    <div style="font-size:11px;color:var(--text4);margin-bottom:6px;text-align:center">${fromVal} → ${toVal}</div>
+    <div id="mp-summary" style="text-align:center;margin-bottom:12px;padding:10px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Seleccionados</div>
+      <div id="mp-summary-count" style="font-size:22px;font-weight:800;color:var(--green);margin-top:2px">${_markPaidUsers.size} de ${rows.length}</div>
+      <div id="mp-summary-total" style="font-size:13px;color:var(--text2);margin-top:2px">$${totalSelMonto.toFixed(2)} total a pagar</div>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="modal-btn-gray" style="flex:1;min-width:90px;font-size:11px;padding:6px 8px" onclick="markPaidQuickSelect('all')">Todos</button>
+      <button class="modal-btn-gray" style="flex:1;min-width:90px;font-size:11px;padding:6px 8px" onclick="markPaidQuickSelect('pending')">Solo pendientes</button>
+      <button class="modal-btn-gray" style="flex:1;min-width:90px;font-size:11px;padding:6px 8px" onclick="markPaidQuickSelect('none')">Ninguno</button>
+    </div>
+    <div id="mp-list" style="max-height:300px;overflow-y:auto;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:4px">
+      ${rows.map(r=>{
+        const checked=_markPaidUsers.has(r.u)?'checked':'';
+        const disabled=r.alreadyPaid||r.noRate?'disabled':'';
+        const statusBadge=r.alreadyPaid
+          ?'<span style="font-size:10px;color:#c084fc;background:rgba(168,85,247,0.18);border:1px solid rgba(168,85,247,0.35);border-radius:6px;padding:2px 6px;margin-left:6px;font-weight:600">✓ ya pagado</span>'
+          :r.noRate
+            ?'<span style="font-size:10px;color:#fb923c;background:rgba(249,115,22,0.18);border:1px solid rgba(249,115,22,0.35);border-radius:6px;padding:2px 6px;margin-left:6px;font-weight:600">⚠ sin tarifa</span>'
+            :'';
+        // Colores explícitos para garantizar contraste sobre fondo oscuro del modal
+        return `<label style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:${disabled?'not-allowed':'pointer'};opacity:${disabled?'0.5':'1'}">
+          <input type="checkbox" ${checked} ${disabled} data-mpuser="${r.u}" onchange="toggleMarkPaidUser('${r.u}',this.checked)" style="width:18px;height:18px;accent-color:#10b981;flex-shrink:0">
+          <div class="td-av" style="flex-shrink:0;width:32px;height:32px;font-size:11px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#34d399;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:800">${r.ini}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px;color:#f8fafc;display:flex;align-items:center;flex-wrap:wrap;line-height:1.3">${r.nombre}${statusBadge}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:3px;font-weight:500">${r.hrs.toFixed(1)}h · ${r.rate>0?'$'+r.rate.toFixed(2)+'/h':'sin tarifa'}</div>
+          </div>
+          <div style="font-size:14px;font-weight:800;color:#10b981;flex-shrink:0">${r.totalTxt}</div>
+        </label>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:12px">
+      <label style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">Nota para el empleado (opcional)</label>
+      <textarea id="mp-nota" rows="2" placeholder="Ej: Pago semana del 13-19 abril · Cheque #1023" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:12px;margin-top:4px;resize:vertical"></textarea>
+    </div>
+  `;
+  document.getElementById('modal-mark-paid-body').innerHTML=html;
+  document.getElementById('modal-mark-paid-from').textContent=fromVal;
+  document.getElementById('modal-mark-paid-to').textContent=toVal;
+  // Guardar rows en el modal para poder leerlos al confirmar
+  window._markPaidRows=rows;
+  window._markPaidFrom=fromVal;
+  window._markPaidTo=toVal;
+  openModal('modal-mark-paid');
+}
+
+function toggleMarkPaidUser(u,checked){
+  if(checked)_markPaidUsers.add(u);
+  else _markPaidUsers.delete(u);
+  updateMarkPaidSummary();
+}
+
+function markPaidQuickSelect(mode){
+  const rows=window._markPaidRows||[];
+  _markPaidUsers=new Set();
+  rows.forEach(r=>{
+    if(r.alreadyPaid||r.noRate)return; // los disabled no se pueden seleccionar
+    if(mode==='all'||(mode==='pending'&&!r.alreadyPaid))_markPaidUsers.add(r.u);
+  });
+  // Actualizar checkboxes
+  document.querySelectorAll('#mp-list input[data-mpuser]').forEach(chk=>{
+    if(chk.disabled)return;
+    chk.checked=_markPaidUsers.has(chk.dataset.mpuser);
+  });
+  updateMarkPaidSummary();
+}
+
+function updateMarkPaidSummary(){
+  const rows=window._markPaidRows||[];
+  const total=rows.filter(r=>_markPaidUsers.has(r.u)).reduce((s,r)=>s+r.totalNum,0);
+  const cEl=document.getElementById('mp-summary-count');
+  const tEl=document.getElementById('mp-summary-total');
+  if(cEl)cEl.textContent=_markPaidUsers.size+' de '+rows.length;
+  if(tEl)tEl.textContent='$'+total.toFixed(2)+' total a pagar';
+}
+
+async function confirmMarkPaid(){
+  const rows=window._markPaidRows||[];
+  const fromVal=window._markPaidFrom;
+  const toVal=window._markPaidTo;
+  const nota=document.getElementById('mp-nota')?.value.trim()||null;
+  const seleccionados=rows.filter(r=>_markPaidUsers.has(r.u));
+  if(!seleccionados.length){showToast('Selecciona al menos un empleado');return;}
+  const totalMonto=seleccionados.reduce((s,r)=>s+r.totalNum,0);
+  // Confirmación custom (no usar confirm() nativo — feo)
+  const ok=await showConfirmPayDialog(seleccionados.length,totalMonto);
+  if(!ok)return;
+  closeModal('modal-mark-paid');
+  showLoader('Registrando pagos...');
+  const history=getPaidHistory();
+  let cloudOk=0,cloudFail=0,localOnly=0;
+  let lastError=null;
+  const now=new Date().toISOString();
+  const exitosos=[];
+  for(const r of seleccionados){
+    const card=document.querySelector('.pay-card[data-paycard="'+r.u+'"]');
+    let hBruto=0,hLunch=0;
+    if(card){
+      const brutoEl=card.querySelector('.pay-hrs-row .pay-hrs-item:first-child .pay-hrs-val');
+      hBruto=parseFloat((brutoEl?.textContent||'0').replace(/[^\d.]/g,''))||0;
+      hLunch=Math.max(0,hBruto-r.hrs);
+    }
+    const payload={
+      usuario:r.u,
+      period_start:fromVal,
+      period_end:toVal,
+      hours_bruto:hBruto.toFixed(2),
+      hours_lunch:hLunch.toFixed(2),
+      hours_neto:r.hrs.toFixed(2),
+      hourly_rate:r.rate.toFixed(2),
+      total_amount:r.totalNum.toFixed(2),
+      status:'paid',
+      emitido_por:currentUser||'admin',
+      emitido_at:now,
+      nota_admin:nota
+    };
+    let supabaseId=null;
+    let savedToCloud=false;
+    if(supabaseAvailable&&SUPABASE_URL){
+      try{
+        const res=await fetch(SUPABASE_URL+'/rest/v1/payments',{
+          method:'POST',
+          headers:{
+            'apikey':SUPABASE_ANON_KEY,
+            'Authorization':'Bearer '+SUPABASE_ANON_KEY,
+            'Content-Type':'application/json',
+            'Prefer':'return=representation'
+          },
+          body:JSON.stringify(payload)
+        });
+        if(res.ok){
+          const data=await res.json();
+          supabaseId=Array.isArray(data)?data[0]?.id:data?.id;
+          cloudOk++;
+          savedToCloud=true;
+        }else{
+          cloudFail++;
+          let errBody='';
+          try{errBody=await res.text();}catch(_){}
+          console.warn('payments insert HTTP',res.status,errBody);
+          try{
+            const j=JSON.parse(errBody);
+            lastError=j.message||j.hint||errBody||('HTTP '+res.status);
+          }catch(_){lastError='HTTP '+res.status+(errBody?(' · '+errBody.slice(0,140)):'');}
+        }
+      }catch(e){
+        cloudFail++;
+        lastError=e&&e.message||String(e);
+        console.warn('payments insert error:',e);
+      }
+    }else{
+      localOnly++;
+      savedToCloud=false;
+    }
+    // SOLO guardar en historial si: (a) cloud OK, o (b) genuinamente offline
+    // Si el servidor RECHAZÓ el insert, NO se guarda nada — el admin debe corregir.
+    if(savedToCloud||(localOnly>0&&!supabaseAvailable)){
+      history.unshift({
+        usuario:r.u,from:fromVal,to:toVal,
+        hrs:r.hrs.toFixed(2),total:r.totalTxt,
+        paidAt:now,type:'paid',
+        changedBy:currentUser||'admin',
+        paymentId:supabaseId,
+        nota:nota||undefined,
+        cloudPending:!savedToCloud
+      });
+      exitosos.push(r);
+      try{await logAudit('PAYMENT_MARKED',r.u,{periodo:fromVal+'→'+toVal,total:r.totalNum.toFixed(2),paymentId:supabaseId});}catch(_){}
+    } else {
+      try{await logAudit('PAYMENT_FAILED',r.u,{periodo:fromVal+'→'+toVal,total:r.totalNum.toFixed(2),error:lastError});}catch(_){}
+    }
+  }
+  if(exitosos.length)savePaidHistory(history);
+  hideLoader();
+  if(cloudOk===seleccionados.length){
+    showToast('✓ '+cloudOk+' pago'+(cloudOk!==1?'s':'')+' enviado'+(cloudOk!==1?'s':'')+' al app del empleado');
+  } else if(cloudFail===seleccionados.length){
+    const errMsg=lastError&&lastError.toLowerCase().includes('row-level security')
+      ? 'Permisos en Supabase no configurados. Corre el SQL supabase_fix_payments_rls.sql en el SQL Editor.'
+      : (lastError||'Error desconocido del servidor');
+    alert('❌ Ningún pago se registró\n\nMotivo: '+errMsg+'\n\nEl historial NO fue actualizado. Corrige el problema y vuelve a intentarlo.');
+    showToast('❌ Pagos rechazados — historial intacto');
+  } else if(localOnly>0&&cloudFail===0){
+    showToast('⚠ '+localOnly+' pago'+(localOnly!==1?'s':'')+' guardado'+(localOnly!==1?'s':'')+' offline · se subirán al volver la conexión');
+  } else {
+    showToast('⚠ '+cloudOk+' enviados · '+cloudFail+' fallaron — revisa la consola');
+    if(lastError)console.error('Último error de payments insert:',lastError);
+  }
   renderReport();renderPaidHistory();
 }
 
@@ -3518,64 +3922,85 @@ function renderReport(){
       return false;
     });
   }
-  // Ordenar cronológicamente para garantizar Entrada antes de Salida
-  recs=recs.slice().sort((a,b)=>{
-    const ta=a.timestamp?new Date(a.timestamp).getTime():0;
-    const tb=b.timestamp?new Date(b.timestamp).getTime():0;
+  // ════════════════════════════════════════════════════════════════════
+  // CÁLCULO DE NÓMINA — INTEGRIDAD CRÍTICA (CERO MARGEN DE ERROR)
+  // ════════════════════════════════════════════════════════════════════
+  // Unificamos con la lógica del calendario del empleado (renderPrCalendar):
+  // 1) DEDUPLICAR por usuario|tipo|fecha|hora (Supabase puede traer copias)
+  // 2) ORDENAR cronológicamente por timestamp
+  // 3) RECALCULAR fresco desde Entrada→Salida (NO confiar en horas_neto/bruto
+  //    almacenadas; pudieron escribirse con lógica vieja y al sincronizar
+  //    se duplican con distinto formato de fecha).
+  // 4) Capear cada día a 24h.
+  // 5) Aplicar California Daily OT sobre el TOTAL DIARIO.
+  // ════════════════════════════════════════════════════════════════════
+  const _normH=h=>(h||'').replace(/\s+/g,' ').replace(/\. /g,'.').trim().toLowerCase();
+  const _seenGlobal=new Set();
+  const recsDedup=[];
+  for(const r of recs){
+    if(!r||!r.usuario||!r.tipo||!r.fecha)continue;
+    const k=r.usuario+'|'+r.tipo+'|'+r.fecha+'|'+_normH(r.hora);
+    if(_seenGlobal.has(k))continue;
+    _seenGlobal.add(k);
+    recsDedup.push(r);
+  }
+  recsDedup.sort((a,b)=>{
+    const ta=a.timestamp?new Date(a.timestamp).getTime():(a.id||0);
+    const tb=b.timestamp?new Date(b.timestamp).getTime():(b.id||0);
     return ta-tb;
   });
-  // Helper: parsea "8h 30m" → minutos
-  function _parseHorasTxt(t){
-    if(!t||typeof t!=='string')return 0;
-    const m=t.match(/(\d+)h\s*(\d+)m?/);
-    return m?(parseInt(m[1])*60+parseInt(m[2])):0;
-  }
-  // Calcular horas por empleado con OT California (>8h/día = 1.5x, >12h/día = 2x)
+  // Agrupar por (usuario, fecha) → lista de records del día (ya deduplicada y ordenada)
   const users={};
-  recs.forEach(r=>{
+  const userDayRecs={};
+  recsDedup.forEach(r=>{
     const u=r.usuario;
-    if(!users[u])users[u]={horasBruto:0,regularHrs:0,otHrs:0,dtHrs:0,diasSet:new Set(),lastEntrada:{},lunchOT:0,dayRecs:{},oshaOk:0,oshaTotal:0};
-    const uu=users[u];
+    if(!users[u])users[u]={horasBruto:0,regularHrs:0,otHrs:0,dtHrs:0,diasSet:new Set(),dayPayMins:{},dayBrutoMins:{},oshaOk:0,oshaTotal:0};
+    if(!userDayRecs[u])userDayRecs[u]={};
+    if(!userDayRecs[u][r.fecha])userDayRecs[u][r.fecha]=[];
+    userDayRecs[u][r.fecha].push(r);
     if(r.tipo==='Entrada'){
-      uu.lastEntrada[r.fecha]=r.hora;
-      uu.oshaTotal++;
-      if(r.osha_ok)uu.oshaOk++;
+      users[u].oshaTotal++;
+      if(r.osha_ok)users[u].oshaOk++;
     }
-    if(!uu.dayRecs[r.fecha])uu.dayRecs[r.fecha]=[];
-    uu.dayRecs[r.fecha].push(r);
-    if(r.tipo==='Salida'){
-      let totalMins=0,pagoMins=0;
-      // PRIORIDAD 1: usar horas_neto almacenada (calculada en el momento del registro)
-      if(r.horas_neto&&_parseHorasTxt(r.horas_neto)>0){
-        const netoM=_parseHorasTxt(r.horas_neto);
-        const brutoM=r.horas_bruto?_parseHorasTxt(r.horas_bruto):netoM;
-        totalMins=brutoM;pagoMins=netoM;
-      }
-      // PRIORIDAD 2: horas_bruto almacenada + descontar lunch real
-      else if(r.horas_bruto&&_parseHorasTxt(r.horas_bruto)>0){
-        totalMins=_parseHorasTxt(r.horas_bruto);
-        const lm=calcActualLunchMins(uu.dayRecs[r.fecha]||[]);
-        pagoMins=Math.max(0,totalMins-lm);
-      }
-      // PRIORIDAD 3: calcular desde hora de entrada (flujo normal en tiempo real)
-      else if(uu.lastEntrada[r.fecha]){
-        totalMins=calcMinsBetween(uu.lastEntrada[r.fecha],r.hora);
-        if(totalMins>0&&totalMins<24*60){
-          const lm=calcActualLunchMins(uu.dayRecs[r.fecha]||[]);
-          pagoMins=Math.max(0,totalMins-lm);
+  });
+  // Calcular minutos reales por día emparejando Entrada→Salida en secuencia
+  Object.keys(userDayRecs).forEach(u=>{
+    const uu=users[u];
+    Object.keys(userDayRecs[u]).forEach(fecha=>{
+      const dayRecs=userDayRecs[u][fecha];
+      let totalMins=0,lastEntrada=null;
+      dayRecs.forEach(r=>{
+        if(r.tipo==='Entrada')lastEntrada=r.hora;
+        else if(r.tipo==='Salida'&&lastEntrada){
+          const mins=calcMinsBetween(lastEntrada,r.hora);
+          if(mins>0&&mins<24*60)totalMins+=mins;
+          lastEntrada=null;
         }
-      }
-      if(pagoMins>0&&totalMins<24*60){
-        const pagoHrs=pagoMins/60;
-        uu.horasBruto+=totalMins/60;
-        uu.diasSet.add(r.fecha);
-        delete uu.lastEntrada[r.fecha];
-        // California OT: >8h/día = 1.5x  |  >12h/día = 2x
-        if(pagoHrs<=8){uu.regularHrs+=pagoHrs;}
-        else if(pagoHrs<=12){uu.regularHrs+=8;uu.otHrs+=(pagoHrs-8);}
-        else{uu.regularHrs+=8;uu.otHrs+=4;uu.dtHrs+=(pagoHrs-12);}
-      }
-    }
+      });
+      if(totalMins<=0)return;
+      // Capear a 24h — ningún humano trabaja más
+      if(totalMins>24*60)totalMins=24*60;
+      const lunchM=calcActualLunchMins(dayRecs);
+      const pagoMins=Math.max(0,totalMins-lunchM);
+      if(pagoMins<=0)return;
+      uu.diasSet.add(fecha);
+      uu.horasBruto+=totalMins/60;
+      uu.dayPayMins[fecha]=pagoMins;
+      uu.dayBrutoMins[fecha]=totalMins;
+    });
+  });
+  // ── Aplicar California Daily OT sobre el TOTAL DIARIO de cada empleado
+  //    >8h/día = 1.5x (overtime)  ·  >12h/día = 2x (doubletime)
+  //    Esto evita contar mal los turnos partidos: 5h + 6h en el mismo día = 8 reg + 3 OT.
+  Object.keys(users).forEach(u=>{
+    const uu=users[u];
+    Object.values(uu.dayPayMins).forEach(mins=>{
+      const hrs=mins/60;
+      if(hrs<=0)return;
+      if(hrs<=8){uu.regularHrs+=hrs;}
+      else if(hrs<=12){uu.regularHrs+=8;uu.otHrs+=(hrs-8);}
+      else{uu.regularHrs+=8;uu.otHrs+=4;uu.dtHrs+=(hrs-12);}
+    });
   });
   const container=document.getElementById('rpt-pay-list');if(!container)return;
   const keys=Object.keys(users).filter(u=>u!==ADMIN_USER).sort((a,b)=>(users[b].regularHrs+users[b].otHrs+users[b].dtHrs)-(users[a].regularHrs+users[a].otHrs+users[a].dtHrs));
@@ -3664,6 +4089,8 @@ async function renderAdminSettings(){
   const backupInfo=await verifyLastBackup();
   const lastBackups=await getLastBackups(3);
   const pendingSync=allRecords.filter(r=>!r.synced_cloud).length;
+  // ── Estimar uso de Supabase Storage / DB ─────────────────────────
+  const cloudUsage=await estimarUsoCloud();
   el.innerHTML=`
     <div class="sec-title" style="margin-bottom:12px">Configuración del sistema</div>
     <div class="config-card"><div class="config-lbl">Tiempo de lunch base</div><div class="config-val">${LUNCH_MINUTES} min</div><div class="config-sub">Tolerancia silenciosa: ${LUNCH_TOLERANCE_MINUTES} min</div></div>
@@ -3688,6 +4115,24 @@ async function renderAdminSettings(){
         <button onclick="createSignedBackup().then(()=>showToast('✓ Backup creado'))" style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);border-radius:8px;padding:8px 12px;color:var(--orange);font-size:12px;cursor:pointer;font-family:var(--font);font-weight:600">🔒 Backup ahora</button>
         <button onclick="exportLatestBackup()" style="background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.25);border-radius:8px;padding:8px 12px;color:#c084fc;font-size:12px;cursor:pointer;font-family:var(--font);font-weight:600">📤 Exportar backup interno</button>
       </div>
+    </div>
+    <div class="config-card" style="border-color:${cloudUsage.alerta?'rgba(249,115,22,0.4)':'rgba(168,85,247,0.25)'};background:${cloudUsage.alerta?'rgba(249,115,22,0.06)':'rgba(168,85,247,0.04)'}">
+      <div class="config-lbl" style="display:flex;align-items:center;gap:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+        Espacio en cloud Supabase (Free tier · 500 MB DB)
+      </div>
+      <div style="margin-top:8px;height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(100,cloudUsage.pctUsado)}%;background:${cloudUsage.alerta?'linear-gradient(90deg,#f97316,#ef4444)':'linear-gradient(90deg,#a855f7,#3b82f6)'};transition:width .4s"></div>
+      </div>
+      <div class="config-val" style="font-size:13px;margin-top:6px;color:${cloudUsage.alerta?'var(--orange)':'#c084fc'}">${cloudUsage.usadoMB.toFixed(1)} MB / 500 MB · ${cloudUsage.pctUsado.toFixed(0)}% usado</div>
+      <div class="config-sub" style="line-height:1.6">
+        <div>📸 ${cloudUsage.fotosActivas} fotos activas (${cloudUsage.fotosMB.toFixed(1)} MB)</div>
+        <div>📋 ${cloudUsage.recordsCount} registros (${cloudUsage.recordsMB.toFixed(1)} MB)</div>
+        ${cloudUsage.proyectosArchivables>0?`<div style="color:var(--orange);margin-top:4px">⚠ ${cloudUsage.proyectosArchivables} proyecto${cloudUsage.proyectosArchivables!==1?'s':''} completado${cloudUsage.proyectosArchivables!==1?'s':''} con fotos sin archivar (${cloudUsage.proyectosArchivablesMB.toFixed(1)} MB liberables)</div>`:''}
+      </div>
+      ${cloudUsage.proyectosArchivables>0?`<div style="margin-top:10px">
+        <button onclick="archivarTodosLosCompletados()" style="background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.4);border-radius:8px;padding:10px 14px;color:#c084fc;font-size:13px;cursor:pointer;font-family:var(--font);font-weight:700">📦 Archivar ${cloudUsage.proyectosArchivables} proyecto${cloudUsage.proyectosArchivables!==1?'s':''} y liberar ${cloudUsage.proyectosArchivablesMB.toFixed(1)} MB</button>
+      </div>`:''}
     </div>
     ${!SUPABASE_URL?`
     <div class="config-card" style="border-color:rgba(249,115,22,0.2)">
@@ -3719,12 +4164,35 @@ async function renderAdminSettings(){
 // Borra IndexedDB + caches + localStorage de este teléfono.
 // No toca Supabase (eso lo hace format_reset.sql en el SQL Editor).
 // ============================================================
-async function factoryResetLocal(){
+// ════════════════════════════════════════════════════════════════════
+// FORMATEAR DATOS LOCALES — modal custom con confirmación de seguridad
+// ════════════════════════════════════════════════════════════════════
+function factoryResetLocal(){
   if(!(isAdmin||currentUser===ADMIN_USER)){
     showToast('⛔ Solo el admin puede formatear');return;
   }
-  const confirmText=prompt('Esto BORRA toda la base de datos local de este teléfono.\n\nNo se puede deshacer. Escribe FORMATEAR para confirmar:');
-  if(confirmText!=='FORMATEAR'){showToast('Cancelado');return;}
+  const inp=document.getElementById('mfr-confirm-inp');
+  if(inp){inp.value='';inp.classList.remove('valid');}
+  const btn=document.getElementById('mfr-confirm-btn');
+  if(btn){btn.disabled=true;btn.classList.remove('ready');}
+  openModal('modal-factory-reset');
+  setTimeout(()=>{const i=document.getElementById('mfr-confirm-inp');if(i)i.focus();},200);
+}
+
+function _onMfrInput(){
+  const inp=document.getElementById('mfr-confirm-inp');
+  const btn=document.getElementById('mfr-confirm-btn');
+  if(!inp||!btn)return;
+  const ok=inp.value.trim().toUpperCase()==='FORMATEAR';
+  inp.classList.toggle('valid',ok);
+  btn.disabled=!ok;
+  btn.classList.toggle('ready',ok);
+}
+
+async function confirmFactoryReset(){
+  const inp=document.getElementById('mfr-confirm-inp');
+  if(!inp||inp.value.trim().toUpperCase()!=='FORMATEAR')return;
+  closeModal('modal-factory-reset');
   try{
     showLoader('Formateando datos locales…');
     try{if(db&&db.close)db.close();}catch(e){}
@@ -3744,8 +4212,8 @@ async function factoryResetLocal(){
       }
     }catch(e){}
     hideLoader();
-    alert('✓ Datos locales borrados.\n\nLa app se reiniciará ahora.');
-    setTimeout(()=>{try{location.reload(true);}catch(e){location.reload();}},300);
+    showToast('✓ Datos locales borrados · reiniciando…');
+    setTimeout(()=>{try{location.reload(true);}catch(e){location.reload();}},900);
   }catch(err){
     hideLoader();
     console.error('factoryResetLocal error:',err);
@@ -3757,56 +4225,91 @@ async function factoryResetLocal(){
 // EXPORT
 // ============================================================
 async function exportFullBackup(){
-  const recs=await getAllRecords();const emps=await dbGetAll('employees');
-  const backup={exportedAt:new Date().toISOString(),version:'3.0',device:deviceId,records:recs,employees:emps.map(e=>({...e,pass:'[PROTECTED]',biometricId:'[PROTECTED]'}))};
-  const str=JSON.stringify(backup,null,2);
-  const firma=await sha256(str+'|EXPORT_KEY');
-  backup.firma_exportacion=firma;
-  const backupStr=JSON.stringify(backup,null,2);
-  downloadFileNative('BACKUP_SecureCheck_'+new Date().toISOString().slice(0,10)+'.json','application/json',backupStr);
+  try{
+    showLoader('Generando backup...');
+    const recs=await getAllRecords();const emps=await dbGetAll('employees');
+    if(!Array.isArray(recs)||!Array.isArray(emps)){
+      hideLoader();showToast('❌ Error: datos locales no disponibles');return;
+    }
+    const backup={exportedAt:new Date().toISOString(),version:'3.0',device:deviceId,records:recs,employees:emps.map(e=>({...e,pass:'[PROTECTED]',biometricId:'[PROTECTED]'}))};
+    const str=JSON.stringify(backup,null,2);
+    const firma=await sha256(str+'|EXPORT_KEY');
+    backup.firma_exportacion=firma;
+    const backupStr=JSON.stringify(backup,null,2);
+    const filename='BACKUP_Wylog_'+new Date().toISOString().slice(0,10)+'.json';
+    hideLoader();
+    await downloadFileNative(filename,'application/json',backupStr);
+    try{ await logAudit('BACKUP_EXPORTED',currentUser||'admin',{filename,records:recs.length,employees:emps.length}); }catch(_){}
+  }catch(err){
+    hideLoader();console.error('exportFullBackup:',err);
+    showToast('❌ Error al exportar backup: '+(err&&err.message||err));
+  }
 }
 async function exportLatestBackup(){
-  // Obtener todos los backups internos guardados (sin tocar el guardado)
-  const all=await dbGetAll('backups');
-  if(!all||!all.length){showToast('⚠️ No hay backups internos todavía — usa "Backup ahora" primero');return;}
-  // Ordenar y tomar el más reciente
-  const latest=all.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp))[0];
-  // Parsear el snapshot interno
-  let exportObj;
   try{
-    const snapshot=JSON.parse(latest.data||'{}');
-    exportObj={
-      export_type:'backup_interno',
-      exported_at:new Date().toISOString(),
-      backup_timestamp:latest.timestamp,
-      firma_integridad:latest.firma,
-      device_id:latest.deviceId||deviceId,
-      total_records:latest.totalRecords,
-      nota:'Cada exportación es una foto del estado actual. No se fusiona con archivos anteriores.',
-      ...snapshot
-    };
-  }catch(e){
-    showToast('❌ Error al leer el backup interno');return;
+    // Obtener todos los backups internos guardados (sin tocar el guardado)
+    const all=await dbGetAll('backups');
+    if(!all||!all.length){showToast('⚠️ No hay backups internos todavía — usa "Backup ahora" primero');return;}
+    // Ordenar y tomar el más reciente
+    const latest=all.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp))[0];
+    // Parsear el snapshot interno
+    let exportObj;
+    try{
+      const snapshot=JSON.parse(latest.data||'{}');
+      exportObj={
+        export_type:'backup_interno',
+        exported_at:new Date().toISOString(),
+        backup_timestamp:latest.timestamp,
+        firma_integridad:latest.firma,
+        device_id:latest.deviceId||deviceId,
+        total_records:latest.totalRecords,
+        nota:'Cada exportación es una foto del estado actual. No se fusiona con archivos anteriores.',
+        ...snapshot
+      };
+    }catch(e){
+      showToast('❌ Error al leer el backup interno');return;
+    }
+    const fecha=new Date(latest.timestamp).toISOString().slice(0,10);
+    const hora=new Date(latest.timestamp).toTimeString().slice(0,5).replace(':','-');
+    const filename=`BACKUP_INTERNO_LNI_${fecha}_${hora}.json`;
+    await downloadFileNative(filename,'application/json',JSON.stringify(exportObj,null,2));
+    try{ await logAudit('BACKUP_INTERNO_EXPORTED',currentUser||'admin',{filename}); }catch(_){}
+  }catch(err){
+    console.error('exportLatestBackup:',err);
+    showToast('❌ Error al exportar backup interno: '+(err&&err.message||err));
   }
-  const fecha=new Date(latest.timestamp).toISOString().slice(0,10);
-  const hora=new Date(latest.timestamp).toTimeString().slice(0,5).replace(':','-');
-  const filename=`BACKUP_INTERNO_LNI_${fecha}_${hora}.json`;
-  await downloadFileNative(filename,'application/json',JSON.stringify(exportObj,null,2));
 }
 
-function exportCSV(){
-  const tipoFilter=document.getElementById('filter-tipo')?.value||'';const fechaFilter=document.getElementById('filter-fecha')?.value||'';
-  let recs=[...allRecords];
-  if(tipoFilter)recs=recs.filter(r=>r.tipo===tipoFilter);if(fechaFilter)recs=recs.filter(r=>r.fecha===fechaFilter);
-  recs.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
-  const header='Empleado,Tipo,Fecha,Hora,Coordenadas,OSHA_OK,Firma,Timestamp\n';
-  const rows=recs.map(r=>`"${r.usuario}","${r.tipo}","${r.fecha}","${r.hora}","${r.coords||''}","${r.osha_ok?'SI':''}","${r.firma?r.firma.substring(0,8)+'...':'sin_firma'}","${r.timestamp||''}"`).join('\n');
-  downloadFileNative('REGISTROS_LNI_'+new Date().toISOString().slice(0,10)+'.csv','text/csv',header+rows);
+async function exportCSV(){
+  try{
+    const tipoFilter=document.getElementById('filter-tipo')?.value||'';const fechaFilter=document.getElementById('filter-fecha')?.value||'';
+    let recs=[...allRecords];
+    if(tipoFilter)recs=recs.filter(r=>r.tipo===tipoFilter);if(fechaFilter)recs=recs.filter(r=>r.fecha===fechaFilter);
+    if(!recs.length){showToast('⚠️ No hay registros que exportar con esos filtros');return;}
+    recs.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+    // Sanitizar CSV: reemplazar comillas dobles y evitar inyección por fórmulas (= + - @)
+    const _csvEsc=v=>{
+      if(v===null||v===undefined)return'';
+      let s=String(v).replace(/"/g,'""');
+      if(/^[=\+\-@]/.test(s))s="'"+s; // prefijo para neutralizar fórmulas en Excel
+      return s;
+    };
+    const header='Empleado,Tipo,Fecha,Hora,Coordenadas,OSHA_OK,Firma,Timestamp\n';
+    const rows=recs.map(r=>`"${_csvEsc(r.usuario)}","${_csvEsc(r.tipo)}","${_csvEsc(r.fecha)}","${_csvEsc(r.hora)}","${_csvEsc(r.coords||'')}","${r.osha_ok?'SI':''}","${r.firma?_csvEsc(r.firma.substring(0,8)+'...'):'sin_firma'}","${_csvEsc(r.timestamp||'')}"`).join('\n');
+    const filename='REGISTROS_LNI_'+new Date().toISOString().slice(0,10)+'.csv';
+    await downloadFileNative(filename,'text/csv',header+rows);
+    try{ await logAudit('CSV_EXPORTED',currentUser||'admin',{filename,count:recs.length}); }catch(_){}
+  }catch(err){
+    console.error('exportCSV:',err);
+    showToast('❌ Error al exportar CSV: '+(err&&err.message||err));
+  }
 }
 async function exportReportPDF(){
   if(typeof window.jspdf==='undefined'&&typeof jsPDF==='undefined'){
     showToast('⚠ jsPDF no cargado — verifica conexión a internet');return;
   }
+  try{ showLoader('Generando PDF...'); }catch(_){}
+  try{
   const {jsPDF}=window.jspdf||{jsPDF:window.jsPDF};
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
   const fromVal=document.getElementById('rpt-from')?.value||'';
@@ -3814,7 +4317,6 @@ async function exportReportPDF(){
   const now=new Date();
   const genDate=now.toLocaleDateString('es-US',{year:'numeric',month:'long',day:'numeric'});
   const genTime=now.toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit',hour12:true});
-  // Formato legible para el rango
   function _fmtReadable(iso){
     if(!iso)return'—';
     const d=new Date(iso+'T12:00:00');
@@ -3822,52 +4324,88 @@ async function exportReportPDF(){
   }
   const fromDisplay=_fmtReadable(fromVal);
   const toDisplay=_fmtReadable(toVal);
+  const periodoStr = fromVal&&toVal ? fromDisplay+'  —  '+toDisplay : 'Todos los registros';
 
-  // ── HEADER LNI (mejorado) ────────────────────────────────────
-  doc.setFillColor(26,58,126);
-  doc.rect(0,0,216,32,'F');
-  // Logo cuadrado LNI
-  doc.setFillColor(255,255,255);
-  doc.roundedRect(8,6,20,20,2,2,'F');
-  doc.setTextColor(26,58,126);
+  // ── Paleta corporativa (navy + acento verde, grises neutros)
+  const C_NAVY=[26,58,126];
+  const C_NAVY_SOFT=[210,220,245];
+  const C_ACCENT=[16,135,70];
+  const C_TEXT=[40,44,52];
+  const C_MUTED=[110,116,128];
+  const C_RULE=[222,226,235];
+  const C_TILE=[247,249,253];
+  const C_ZEBRA=[249,251,254];
+  const C_OSHA_BG=[254,247,236];
+  const C_OSHA_BAR=[217,119,6];
+  const C_OSHA_TXT=[140,74,14];
+
+  const PG_W=216, PG_H=doc.internal.pageSize.height;
+  const M_L=14, M_R=14, CONTENT_W=PG_W-M_L-M_R;
+
+  // ── Header reutilizable (se dibuja en cada página)
+  function drawHeader(){
+    doc.setFillColor(...C_NAVY);
+    doc.rect(0,0,PG_W,23,'F');
+    doc.setFillColor(...C_ACCENT);
+    doc.rect(0,23,PG_W,1.2,'F');
+    // Logo
+    doc.setFillColor(255,255,255);
+    doc.roundedRect(M_L,5.5,12,12,1.4,1.4,'F');
+    doc.setTextColor(...C_NAVY);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.text('LNI',M_L+6,12.7,{align:'center'});
+    // Empresa
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(13);
+    doc.text('LNI Custom Manufacturing Inc.',M_L+16,11);
+    doc.setTextColor(...C_NAVY_SOFT);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    doc.text('Gardena, CA  ·  Reporte de Asistencia y Nómina',M_L+16,16);
+    // Derecha
+    doc.setTextColor(...C_NAVY_SOFT);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.text('Generado '+genDate+'  ·  '+genTime, PG_W-M_R, 11, {align:'right'});
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8);
+    doc.text('Período: '+periodoStr, PG_W-M_R, 16.5, {align:'right'});
+  }
+
+  // ── Footer con numeración (se aplica al final a todas las páginas)
+  function drawFooter(pageNum,totalPages){
+    const fy=PG_H-11;
+    doc.setDrawColor(...C_RULE);
+    doc.setLineWidth(0.3);
+    doc.line(M_L,fy,PG_W-M_R,fy);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...C_MUTED);
+    doc.text('LNI Custom Manufacturing Inc.  ·  Wylog  ·  Documento confidencial', M_L, fy+4.5);
+    doc.setFont('helvetica','bold');
+    doc.text('Página '+pageNum+' de '+totalPages, PG_W-M_R, fy+4.5, {align:'right'});
+  }
+
+  drawHeader();
+
+  // ── Título del reporte
+  doc.setTextColor(...C_NAVY);
   doc.setFont('helvetica','bold');
-  doc.setFontSize(11);
-  doc.text('LNI',18,19,{align:'center'});
-  // Nombre empresa y datos
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(14);
-  doc.setFont('helvetica','bold');
-  doc.text('LNI Custom Manufacturing Inc.',34,13);
+  doc.setFontSize(16);
+  doc.text('Reporte de Nómina',M_L,35);
+  doc.setFont('helvetica','normal');
   doc.setFontSize(9);
-  doc.setFont('helvetica','normal');
-  doc.text('Gardena, CA  —  Reporte de Asistencia y Nómina',34,20);
-  // Período prominente
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica','bold');
-  const periodoStr = fromVal&&toVal
-    ? 'Período: '+fromDisplay+' al '+toDisplay
-    : 'Período: Todos los registros';
-  doc.text(periodoStr, 34, 27);
-  // Fecha y hora de generación (derecha)
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7);
-  doc.text('Generado: '+genDate+' a las '+genTime, 202, 27, {align:'right'});
+  doc.setTextColor(...C_MUTED);
+  doc.text('Horas trabajadas y cálculo de compensación por empleado', M_L, 40.3);
 
-  // ── TÍTULO DEL REPORTE ───────────────────────────────────────
-  doc.setTextColor(26,58,126);
-  doc.setFontSize(13);
-  doc.setFont('helvetica','bold');
-  doc.text('RESUMEN DE HORAS Y NÓMINA',108,42,{align:'center'});
-  doc.setDrawColor(26,58,126);
-  doc.setLineWidth(0.5);
-  doc.line(14,45,202,45);
-
-  // ── TABLA PRINCIPAL ──────────────────────────────────────────
+  // ── Recolectar datos
   const tableRows=[];
   let grandTotal=0, totalReg=0, totalOT=0, totalDT=0;
   document.querySelectorAll('#rpt-pay-list .pay-card').forEach(card=>{
     const u=card.dataset.paycard;if(!u)return;
-    // Only include employees selected in the multi-select
     if(selectedPayUsers.size>0&&!selectedPayUsers.has(u))return;
     const nombre=u.charAt(0).toUpperCase()+u.slice(1);
     const hrsEl=card.querySelector('[data-reg]');
@@ -3895,133 +4433,192 @@ async function exportReportPDF(){
   });
   const empCount=tableRows.length;
 
+  // ── Stats row (5 tiles) — antes de la tabla
+  const statsY=45;
+  const statsH=13.5;
+  const gapS=2;
+  const statsW=(CONTENT_W-gapS*4)/5;
+  const stats=[
+    {label:'EMPLEADOS',    value:String(empCount),                              accent:false},
+    {label:'HRS REGULAR',  value:totalReg.toFixed(1)+'h',                       accent:false},
+    {label:'OT  1.5x',     value:totalOT>0.01?totalOT.toFixed(1)+'h':'—',       accent:false},
+    {label:'DT  2x',       value:totalDT>0.01?totalDT.toFixed(1)+'h':'—',       accent:false},
+    {label:'TOTAL A PAGAR',value:'$'+grandTotal.toFixed(2),                     accent:true}
+  ];
+  stats.forEach((s,i)=>{
+    const x=M_L+i*(statsW+gapS);
+    if(s.accent){
+      doc.setFillColor(...C_NAVY);
+      doc.roundedRect(x,statsY,statsW,statsH,1.6,1.6,'F');
+    }else{
+      doc.setFillColor(...C_TILE);
+      doc.roundedRect(x,statsY,statsW,statsH,1.6,1.6,'F');
+      doc.setDrawColor(...C_RULE);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(x,statsY,statsW,statsH,1.6,1.6,'S');
+    }
+    // Label
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...(s.accent?C_NAVY_SOFT:C_MUTED));
+    doc.text(s.label,x+statsW/2,statsY+4.7,{align:'center'});
+    // Value
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(s.accent?11:10);
+    doc.setTextColor(...(s.accent?[255,255,255]:C_NAVY));
+    doc.text(s.value,x+statsW/2,statsY+10.8,{align:'center'});
+  });
+
+  // ── Tabla principal
   doc.autoTable({
-    startY:45,
-    head:[['Empleado','Días','Regular','OT 1.5x','DT 2x','Tarifa','Total','OSHA ✓']],
+    startY:statsY+statsH+6,
+    head:[['Empleado','Días','Regular','OT 1.5x','DT 2x','Tarifa','Total','OSHA']],
     body:tableRows,
-    foot:[['','','','','','TOTAL NÓMINA','$'+grandTotal.toFixed(2),'']],
-    headStyles:{fillColor:[26,58,126],textColor:255,fontStyle:'bold',fontSize:8},
-    footStyles:{fillColor:[240,240,240],textColor:[26,58,126],fontStyle:'bold',fontSize:9},
-    bodyStyles:{fontSize:8,textColor:50},
-    alternateRowStyles:{fillColor:[248,250,255]},
+    foot:[['Total nómina','','','','','','$'+grandTotal.toFixed(2),'']],
+    theme:'grid',
+    headStyles:{
+      fillColor:C_NAVY,textColor:255,fontStyle:'bold',fontSize:8,
+      halign:'left',valign:'middle',
+      cellPadding:{top:2.8,bottom:2.8,left:3,right:3},
+      lineWidth:0
+    },
+    footStyles:{
+      fillColor:[238,242,250],textColor:C_NAVY,fontStyle:'bold',fontSize:9,
+      halign:'right',cellPadding:{top:3,bottom:3,left:3,right:3},lineWidth:0
+    },
+    bodyStyles:{
+      fontSize:8.5,textColor:C_TEXT,
+      cellPadding:{top:2.4,bottom:2.4,left:3,right:3},
+      lineColor:C_RULE,lineWidth:0.15
+    },
+    alternateRowStyles:{fillColor:C_ZEBRA},
     columnStyles:{
-      0:{fontStyle:'bold',cellWidth:32},
-      6:{textColor:[16,120,70],fontStyle:'bold'},
-      7:{halign:'center',fontStyle:'bold'}
+      0:{fontStyle:'bold',cellWidth:30},
+      1:{cellWidth:14,halign:'center'},
+      2:{cellWidth:19,halign:'right'},
+      3:{cellWidth:18,halign:'right'},
+      4:{cellWidth:17,halign:'right'},
+      5:{cellWidth:22,halign:'right'},
+      6:{halign:'right',textColor:C_ACCENT,fontStyle:'bold'},
+      7:{halign:'center',fontStyle:'bold',cellWidth:18}
     },
     didDrawCell:(data)=>{
-      // Colorear celda OSHA
       if(data.column.index===7&&data.section==='body'){
         const txt=data.cell.text[0]||'';
         if(txt!=='N/A'&&txt.includes('/')){
           const[ok,tot]=txt.split('/').map(Number);
           if(tot>0){
-            const color=ok===tot?[16,185,129]:ok>0?[249,115,22]:[239,68,68];
+            const color=ok===tot?[16,135,70]:ok>0?[217,119,6]:[200,30,30];
             doc.setTextColor(...color);
             doc.setFont('helvetica','bold');
-            doc.text(txt,data.cell.x+data.cell.width/2,data.cell.y+data.cell.height/2+1,{align:'center'});
+            doc.setFontSize(8.5);
+            doc.text(txt,data.cell.x+data.cell.width/2,data.cell.y+data.cell.height/2+1.2,{align:'center'});
           }
         }
-        doc.setTextColor(50,50,50);doc.setFont('helvetica','normal');
       }
     },
-    margin:{left:14,right:14},
-    styles:{cellPadding:2.5}
+    margin:{left:M_L,right:M_R,top:28,bottom:18},
+    didDrawPage:(data)=>{
+      if(data.pageNumber>1) drawHeader();
+    }
   });
 
-  // ── SECCIÓN OSHA (detalle legal) ──────────────────────────────
-  const finalY0=doc.lastAutoTable.finalY+6;
-  doc.setFillColor(255,247,237);
-  doc.roundedRect(14,finalY0,188,10,2,2,'F');
-  doc.setDrawColor(249,115,22);doc.setLineWidth(0.3);
-  doc.roundedRect(14,finalY0,188,10,2,2,'S');
-  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(180,70,0);
-  doc.text('🛡️  OSHA Safety Checklist — Declaración de seguridad firmada electrónicamente antes de cada jornada',17,finalY0+6.5);
+  // ── Helper: avance de Y con salto de página automático
+  let cy=doc.lastAutoTable.finalY+7;
+  function ensureSpace(mm){
+    if(cy+mm>PG_H-18){
+      doc.addPage();
+      drawHeader();
+      cy=30;
+    }
+  }
 
-  // ── SECCIÓN NOTAS LEGALES ─────────────────────────────────────
-  const finalY=finalY0+15;
-  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);
-  doc.line(14,finalY,202,finalY);
-  doc.setFontSize(7);doc.setTextColor(120,120,120);doc.setFont('helvetica','normal');
-  const notes=[
-    '• Cálculo de overtime según California Labor Code: >8h/día = 1.5x  |  >12h/día = 2x (tiempo doble).',
-    '• El tiempo de lunch descontado es el REAL registrado (Inicio Lunch → Fin Lunch) por cada empleado.',
-    '• OSHA columna: confirmaciones de seguridad (casco, área libre, condición física) por día / días trabajados.',
-    '• Registros con firma digital SHA-256 y coordenadas GPS — SecureCheck Pro v3.0 — Confidencial.'
-  ];
-  notes.forEach((n,i)=>doc.text(n,14,finalY+5+(i*4)));
-
-  // ── RESUMEN GRAN TOTAL ────────────────────────────────────────
-  const pgH=doc.internal.pageSize.height;
-  const afterNotesY=finalY+5+(notes.length*4)+12;
-  // Espacio necesario: encabezado 8mm + datos 20mm + firmas 35mm + footer 12mm = ~75mm
-  let gtY=afterNotesY;
-  if(gtY+75>pgH){ doc.addPage(); gtY=20; }
-  // Barra de título
-  doc.setFillColor(26,58,126);
-  doc.roundedRect(14,gtY,188,8,2,2,'F');
-  doc.setTextColor(255,255,255);
+  // ── Callout OSHA (sin emoji, barra de acento izquierda)
+  ensureSpace(13);
+  doc.setFillColor(...C_OSHA_BG);
+  doc.roundedRect(M_L,cy,CONTENT_W,12,1.2,1.2,'F');
+  doc.setFillColor(...C_OSHA_BAR);
+  doc.rect(M_L,cy,1.5,12,'F');
   doc.setFont('helvetica','bold');
-  doc.setFontSize(9);
-  doc.text('RESUMEN TOTAL DEL PERÍODO',108,gtY+5.5,{align:'center'});
-  // Caja de datos
-  const gtDataY=gtY+11;
-  doc.setFillColor(248,250,255);
-  doc.roundedRect(14,gtDataY,188,20,2,2,'F');
-  doc.setDrawColor(26,58,126); doc.setLineWidth(0.4);
-  doc.roundedRect(14,gtDataY,188,20,2,2,'S');
-  // Divisores verticales entre columnas
-  [51.6,89.2,126.8,164.4].forEach(xDiv=>{
-    doc.setDrawColor(200,210,235); doc.setLineWidth(0.2);
-    doc.line(xDiv,gtDataY+3,xDiv,gtDataY+17);
-  });
-  // 5 columnas de totales
-  const gtCols=[
-    {label:'Total Empleados', value:String(empCount),                              x:32.8},
-    {label:'Hrs Regulares',   value:totalReg.toFixed(1)+'h',                       x:70.4},
-    {label:'OT (1.5x)',       value:totalOT>0.01?totalOT.toFixed(1)+'h':'—',      x:108},
-    {label:'DT (2x)',         value:totalDT>0.01?totalDT.toFixed(1)+'h':'—',      x:145.6},
-    {label:'TOTAL A PAGAR',   value:'$'+grandTotal.toFixed(2),                     x:183.2},
+  doc.setFontSize(8);
+  doc.setTextColor(...C_OSHA_TXT);
+  doc.text('OSHA Safety Checklist',M_L+4.5,cy+5);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100,70,30);
+  doc.text('Declaración de seguridad firmada electrónicamente antes de cada jornada (casco, área libre, condición física).',M_L+4.5,cy+9.2);
+  cy+=17;
+
+  // ── Notas legales
+  ensureSpace(22);
+  doc.setDrawColor(...C_RULE);
+  doc.setLineWidth(0.3);
+  doc.line(M_L,cy,PG_W-M_R,cy);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C_NAVY);
+  doc.text('NOTAS LEGALES',M_L,cy+4.2);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...C_MUTED);
+  const notes=[
+    'Overtime según California Labor Code:  >8h/día = 1.5x  ·  >12h/día = 2x (tiempo doble).',
+    'El tiempo de lunch descontado es el REAL registrado (Inicio Lunch → Fin Lunch) por cada empleado.',
+    'OSHA columna: confirmaciones de seguridad (casco, área libre, condición física) por día trabajado.',
+    'Registros protegidos con firma digital SHA-256 y coordenadas GPS verificadas.'
   ];
-  gtCols.forEach(col=>{
-    const isLast=col.label==='TOTAL A PAGAR';
-    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(100,100,120);
-    doc.text(col.label,col.x,gtDataY+8,{align:'center'});
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(isLast?10.5:10);
-    if(isLast) doc.setTextColor(16,120,70); else doc.setTextColor(26,58,126);
-    doc.text(col.value,col.x,gtDataY+17,{align:'center'});
-  });
+  notes.forEach((n,i)=>doc.text('·  '+n,M_L,cy+9.5+(i*3.8)));
+  cy=cy+9.5+(notes.length*3.8)+6;
 
-  // ── LÍNEAS DE FIRMA ───────────────────────────────────────────
-  const sigY=gtDataY+30;
-  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(60,60,60);
-  doc.text('FIRMAS DE APROBACIÓN',108,sigY,{align:'center'});
-  // Línea firma izquierda — Empleado
-  doc.setDrawColor(80,80,80); doc.setLineWidth(0.5);
-  doc.line(18,sigY+14,96,sigY+14);
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(60,60,60);
-  doc.text('Firma del Empleado',57,sigY+19,{align:'center'});
-  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(140,140,140);
-  doc.text('Nombre: _______________________',18,sigY+25);
-  doc.text('Fecha:   _______________________',18,sigY+30);
-  // Línea firma derecha — Supervisor
-  doc.setDrawColor(80,80,80); doc.setLineWidth(0.5);
-  doc.line(118,sigY+14,198,sigY+14);
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(60,60,60);
-  doc.text('Firma del Supervisor',158,sigY+19,{align:'center'});
-  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(140,140,140);
-  doc.text('Nombre: _______________________',118,sigY+25);
-  doc.text('Fecha:   _______________________',118,sigY+30);
+  // ── Firmas de aprobación
+  ensureSpace(34);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...C_NAVY);
+  doc.text('FIRMAS DE APROBACIÓN',M_L,cy);
+  doc.setDrawColor(...C_RULE);
+  doc.setLineWidth(0.3);
+  doc.line(M_L,cy+1.7,PG_W-M_R,cy+1.7);
 
-  // ── PIE DE PÁGINA ─────────────────────────────────────────────
-  const pageH=doc.internal.pageSize.height;
-  doc.setFillColor(26,58,126);
-  doc.rect(0,pageH-10,216,10,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(7);
-  doc.text('LNI Custom Manufacturing Inc.  |  Generado por SecureCheck Pro v3.0  |  '+genDate,108,pageH-4,{align:'center'});
+  const sigBlockY=cy+10;
+  const sigGap=10;
+  const sigW=(CONTENT_W-sigGap)/2;
+  // Firma empleado
+  doc.setDrawColor(90,95,105);
+  doc.setLineWidth(0.45);
+  doc.line(M_L+6,sigBlockY+10,M_L+sigW-6,sigBlockY+10);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...C_TEXT);
+  doc.text('Firma del Empleado',M_L+sigW/2,sigBlockY+14.6,{align:'center'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...C_MUTED);
+  doc.text('Nombre:  ____________________________',M_L+6,sigBlockY+20);
+  doc.text('Fecha:    ____________________________',M_L+6,sigBlockY+25);
+  // Firma supervisor
+  const rx=M_L+sigW+sigGap;
+  doc.setDrawColor(90,95,105);
+  doc.setLineWidth(0.45);
+  doc.line(rx+6,sigBlockY+10,rx+sigW-6,sigBlockY+10);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...C_TEXT);
+  doc.text('Firma del Supervisor',rx+sigW/2,sigBlockY+14.6,{align:'center'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...C_MUTED);
+  doc.text('Nombre:  ____________________________',rx+6,sigBlockY+20);
+  doc.text('Fecha:    ____________________________',rx+6,sigBlockY+25);
 
-  // ── NOMBRE INTELIGENTE DEL ARCHIVO ────────────────────────────
+  // ── Footer con numeración en TODAS las páginas
+  const totalPages=doc.internal.getNumberOfPages();
+  for(let i=1;i<=totalPages;i++){
+    doc.setPage(i);
+    drawFooter(i,totalPages);
+  }
+
+  // ── Nombre de archivo
   const MESES_SHORT=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   function _fmtDateLabel(iso){
     if(!iso)return'';
@@ -4033,36 +4630,56 @@ async function exportReportPDF(){
   const rangoStr=desde&&hasta?`_${desde}-${hasta}`:(desde?`_${desde}`:'');
   const filename=`NOMINA_LNI${rangoStr}_${empCount}empleados.pdf`;
 
-  // ── DESCARGA CON CAPACITOR O FALLBACK ─────────────────────────
+  // ── Descarga
   const pdfArrayBuffer=doc.output('arraybuffer');
+  try{ hideLoader(); }catch(_){}
   await downloadFileNative(filename,'application/pdf',pdfArrayBuffer);
+  try{ await logAudit('REPORT_PDF_EXPORTED',currentUser||'admin',{filename,period:fromVal+'→'+toVal}); }catch(_){}
+  }catch(err){
+    try{ hideLoader(); }catch(_){}
+    console.error('exportReportPDF:',err);
+    showToast('❌ Error al exportar PDF: '+(err&&err.message||err));
+  }
 }
 
-function exportReportCSV(){
-  const fromVal=document.getElementById('rpt-from')?.value||'';
-  const toVal=document.getElementById('rpt-to')?.value||'';
-  const rows=[`Empleado,Días Trabajados,Hrs Brutas,Hrs Regular(1x),OT(1.5x),DT(2x),Tarifa/hr,Total a Pagar,OSHA Cumplido,Período Desde,Período Hasta`];
-  document.querySelectorAll('#rpt-pay-list .pay-card').forEach(card=>{
-    const u=card.dataset.paycard;if(!u)return;
-    if(selectedPayUsers.size>0&&!selectedPayUsers.has(u))return;
-    const nombre=u.charAt(0).toUpperCase()+u.slice(1);
-    const dias=card.querySelector('.pay-days')?.textContent||'';
-    const hrsEl=card.querySelector('[data-reg]');
-    const hrsBruto=card.querySelector('.pay-hrs-val')?.textContent||'';
-    const reg=parseFloat(hrsEl?.dataset.reg||'0').toFixed(1)+'h';
-    const ot=parseFloat(hrsEl?.dataset.ot||'0').toFixed(1)+'h';
-    const dt=parseFloat(hrsEl?.dataset.dt||'0').toFixed(1)+'h';
-    const rate=getEmpRate(u)||0;
-    const total=document.getElementById('pay-total-'+u)?.textContent||'';
-    const oshaOk=parseInt(card.dataset.oshaOk||'0');
-    const oshaTotal=parseInt(card.dataset.oshaTotal||'0');
-    const oshaStr=oshaTotal>0?`${oshaOk}/${oshaTotal} días`:'N/A';
-    rows.push(`"${nombre}","${dias}","${hrsBruto}","${reg}","${ot}","${dt}","$${rate}","${total}","${oshaStr}","${fromVal}","${toVal}"`);
-  });
-  const MESES_SHORT=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  function _fl(iso){if(!iso)return'';const d=new Date(iso+'T12:00:00');return d.getDate()+MESES_SHORT[d.getMonth()]+d.getFullYear();}
-  const filename=`NOMINA_LNI_${_fl(fromVal)||'inicio'}-${_fl(toVal)||'hoy'}.csv`;
-  downloadFileNative(filename,'text/csv',rows.join('\n'));
+async function exportReportCSV(){
+  try{
+    const fromVal=document.getElementById('rpt-from')?.value||'';
+    const toVal=document.getElementById('rpt-to')?.value||'';
+    const _csvEsc=v=>{
+      if(v===null||v===undefined)return'';
+      let s=String(v).replace(/"/g,'""');
+      if(/^[=\+\-@]/.test(s))s="'"+s; // neutraliza inyección de fórmulas
+      return s;
+    };
+    const rows=[`Empleado,Días Trabajados,Hrs Brutas,Hrs Regular(1x),OT(1.5x),DT(2x),Tarifa/hr,Total a Pagar,OSHA Cumplido,Período Desde,Período Hasta`];
+    document.querySelectorAll('#rpt-pay-list .pay-card').forEach(card=>{
+      const u=card.dataset.paycard;if(!u)return;
+      if(selectedPayUsers.size>0&&!selectedPayUsers.has(u))return;
+      const nombre=u.charAt(0).toUpperCase()+u.slice(1);
+      const dias=card.querySelector('.pay-days')?.textContent||'';
+      const hrsEl=card.querySelector('[data-reg]');
+      const hrsBruto=card.querySelector('.pay-hrs-val')?.textContent||'';
+      const reg=parseFloat(hrsEl?.dataset.reg||'0').toFixed(1)+'h';
+      const ot=parseFloat(hrsEl?.dataset.ot||'0').toFixed(1)+'h';
+      const dt=parseFloat(hrsEl?.dataset.dt||'0').toFixed(1)+'h';
+      const rate=getEmpRate(u)||0;
+      const total=document.getElementById('pay-total-'+u)?.textContent||'';
+      const oshaOk=parseInt(card.dataset.oshaOk||'0');
+      const oshaTotal=parseInt(card.dataset.oshaTotal||'0');
+      const oshaStr=oshaTotal>0?`${oshaOk}/${oshaTotal} días`:'N/A';
+      rows.push(`"${_csvEsc(nombre)}","${_csvEsc(dias)}","${_csvEsc(hrsBruto)}","${reg}","${ot}","${dt}","$${rate}","${_csvEsc(total)}","${_csvEsc(oshaStr)}","${fromVal}","${toVal}"`);
+    });
+    if(rows.length<=1){showToast('⚠️ No hay empleados que exportar');return;}
+    const MESES_SHORT=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    function _fl(iso){if(!iso)return'';const d=new Date(iso+'T12:00:00');return d.getDate()+MESES_SHORT[d.getMonth()]+d.getFullYear();}
+    const filename=`NOMINA_LNI_${_fl(fromVal)||'inicio'}-${_fl(toVal)||'hoy'}.csv`;
+    await downloadFileNative(filename,'text/csv',rows.join('\n'));
+    try{ await logAudit('REPORT_CSV_EXPORTED',currentUser||'admin',{filename,period:fromVal+'→'+toVal}); }catch(_){}
+  }catch(err){
+    console.error('exportReportCSV:',err);
+    showToast('❌ Error al exportar CSV de reporte: '+(err&&err.message||err));
+  }
 }
 
 // ── Construir Blob desde contenido (string o ArrayBuffer) ──────
@@ -4257,7 +4874,7 @@ async function _tryBrowserNotification(filename){
       await Notification.requestPermission();
     }
     if(Notification.permission==='granted'){
-      new Notification('SecureCheck Pro — Archivo guardado',{
+      new Notification('Wylog — Archivo guardado',{
         body:'📥 '+filename+'\nGuardado en Descargas',
         icon:'https://cdn-icons-png.flaticon.com/512/2092/2092204.png',
         tag:'sc-download'
@@ -4588,7 +5205,12 @@ function openModal(id){
   // Asegura que el modal sea visible inmediatamente — scroll al tope del overlay
   el.scrollTop=0;
 }
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModal(id){
+  const el=document.getElementById(id);
+  if(el)el.classList.remove('open');
+  // Si había una actualización en vivo pendiente, ahora es seguro refrescar
+  if(typeof flushPendingLiveUpdate==='function')setTimeout(flushPendingLiveUpdate,80);
+}
 function showLoader(t){document.getElementById('load-txt').textContent=t||'Cargando...';document.getElementById('loader').classList.add('show');}
 function hideLoader(){document.getElementById('loader').classList.remove('show');}
 let toastT;
@@ -5828,10 +6450,19 @@ async function calcHorasProyecto(empleados,fechaInicio,fechaFin){
   }
   const fIni=toFechaKey(fechaInicio);
   const fFin=fechaFin?toFechaKey(fechaFin):null;
+  // Dedup helper para sync duplicado
+  const _normH=h=>(h||'').replace(/\s+/g,' ').replace(/\. /g,'.').trim().toLowerCase();
   let maxHoras=0;
   let maxEmp=null;
   for(const u of empleados){
     let recs=allRecs.filter(r=>r.usuario===u);
+    // DEDUPLICAR por tipo|fecha|hora (Supabase puede traer copias)
+    const _seen=new Set();
+    recs=recs.filter(r=>{
+      const k=r.tipo+'|'+r.fecha+'|'+_normH(r.hora);
+      if(_seen.has(k))return false;
+      _seen.add(k);return true;
+    });
     // Filtrar por rango de fechas
     if(fIni||fFin){
       recs=recs.filter(r=>{
@@ -5846,22 +6477,36 @@ async function calcHorasProyecto(empleados,fechaInicio,fechaFin){
         return true;
       });
     }
-    // Calcular horas por días en ese rango
+    // Ordenar cronológicamente por timestamp (no solo por id local)
+    recs.sort((a,b)=>{
+      const ta=a.timestamp?new Date(a.timestamp).getTime():(a.id||0);
+      const tb=b.timestamp?new Date(b.timestamp).getTime():(b.id||0);
+      return ta-tb;
+    });
+    // Calcular horas por días emparejando TODOS los Entrada→Salida en secuencia
     const byDate={};
     recs.forEach(r=>{if(!byDate[r.fecha])byDate[r.fecha]=[];byDate[r.fecha].push(r);});
     let totalHrs=0;
     for(const fecha of Object.keys(byDate)){
-      const dr=byDate[fecha].sort((a,b)=>(a.id||0)-(b.id||0));
-      const ent=dr.find(r=>r.tipo==='Entrada');
-      const sal=dr.find(r=>r.tipo==='Salida');
-      if(ent&&sal){
+      const dr=byDate[fecha];
+      let dayMins=0,lastEnt=null;
+      dr.forEach(r=>{
+        if(r.tipo==='Entrada')lastEnt=r.hora;
+        else if(r.tipo==='Salida'&&lastEnt){
+          const mins=calcMinsBetween(lastEnt,r.hora);
+          if(mins>0&&mins<24*60)dayMins+=mins;
+          lastEnt=null;
+        }
+      });
+      if(dayMins>0){
+        if(dayMins>24*60)dayMins=24*60;
         const lunchMins=calcActualLunchMins(dr);
-        const mins=Math.max(0,calcMinsBetween(ent.hora,sal.hora)-lunchMins);
-        totalHrs+=mins/60;
-      } else if(ent){
-        const ini=parseHora(ent.hora);
+        totalHrs+=Math.max(0,dayMins-lunchMins)/60;
+      } else if(lastEnt){
+        // Entrada sin salida: cap a 24h
+        const ini=parseHora(lastEnt);
         const mins=ini?Math.max(0,(new Date()-ini)/60000):0;
-        totalHrs+=Math.min(mins/60,24); // cap a 24h si no hay salida
+        totalHrs+=Math.min(mins/60,24);
       }
     }
     if(totalHrs>maxHoras){maxHoras=totalHrs;maxEmp=u;}
@@ -6062,13 +6707,26 @@ function renderProyectoDetalle(p,horas,maxEmp){
       ${u===maxEmp?'<span class="proy-badge done" style="font-size:9px">Max horas</span>':''}
     </div>`;
   }).join('');
-  const thumbsHtml=(p.fotos||[]).length
-    ?[...p.fotos].reverse().map((f,i)=>`
+  const canEditFotos=(isAdmin||currentUser===ADMIN_USER);
+  const fotosArr=p.fotos||[];
+  const thumbsHtml=fotosArr.length
+    ?[...fotosArr].map((f,i)=>i).reverse().map(origIdx=>{
+      const f=fotosArr[origIdx];
+      const delBtn=canEditFotos
+        ? `<button class="pd-foto-del" onclick="event.stopPropagation();confirmarEliminarFotoProyecto(${p.id},${origIdx})" title="Eliminar foto" aria-label="Eliminar foto">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>
+           </button>`
+        : '';
+      return `
       <div class="pd-foto-item">
-        <img src="${f.dataUrl}" class="pd-foto-thumb" onclick="verFotoGrande('${f.dataUrl}')"/>
-        <div class="pd-foto-meta">${f.hora||''} · ${f.nota||''}</div>
-      </div>`).join('')
-    :`<div class="proy-empty" style="padding:20px 0"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><div style="color:var(--text4);font-size:12px">Sin fotos aún</div></div>`;
+        <div class="pd-foto-wrap">
+          <img src="${f.dataUrl}" class="pd-foto-thumb" onclick="verFotoGrande('${f.dataUrl}')" alt="Foto del proyecto"/>
+          ${delBtn}
+        </div>
+        <div class="pd-foto-meta">${escHtml(f.hora||'')} · ${escHtml(f.nota||'')}</div>
+      </div>`;
+    }).join('')
+    :`<div class="proy-empty" style="padding:20px 0"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><div style="color:var(--text3);font-size:12px">Sin fotos aún</div></div>`;
   document.getElementById('proy-detail-body').innerHTML=`
     ${p.notas?`<div class="pd-notas">💬 ${p.notas}</div>`:''}
     <div class="pd-section-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -6087,10 +6745,17 @@ function renderProyectoDetalle(p,horas,maxEmp){
       </button>
     </div>
     <div class="pd-fotos-grid">${thumbsHtml}</div>
+    ${p.archivedAt?`<div style="margin-top:14px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;font-size:12px;color:#c084fc">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="4"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+      <div style="flex:1"><b>Expediente archivado</b> · ${p.archivedFotosCount||0} foto${(p.archivedFotosCount||0)!==1?'s':''} liberadas del cloud<br><span style="color:var(--text4);font-size:10px">Archivado ${new Date(p.archivedAt).toLocaleDateString('es-US')} por ${p.archivedBy||'admin'} · PDF expediente es la copia oficial</span></div>
+    </div>`:''}
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
       ${p.estado==='activo'
         ?`<button class="modal-btn-gray" style="flex:1;min-width:120px" onclick="cerrarProyecto(${p.id})">✓ Marcar completado</button>`
         :`<button class="modal-btn-gray" style="flex:1;min-width:120px" onclick="reabrirProyecto(${p.id})">↩ Reabrir proyecto</button>`}
+      ${p.estado==='completado'&&!p.archivedAt&&(p.fotos||[]).length>0
+        ?`<button class="modal-btn-gray" style="flex:1;min-width:140px;color:#c084fc;border-color:rgba(168,85,247,0.3);background:rgba(168,85,247,0.08)" onclick="ofrecerArchivarProyecto(${p.id})" title="Generar PDF expediente y liberar fotos del cloud">📦 Archivar expediente</button>`
+        :''}
       <button class="modal-btn-gray" style="flex:1;min-width:120px;color:#ef4444;border-color:rgba(239,68,68,.3)" onclick="confirmarEliminarProyecto(${p.id})">Eliminar</button>
     </div>`;
 }
@@ -6100,6 +6765,8 @@ function volverListaProyectos(){
   document.getElementById('proy-detail-view').style.display='none';
   currentProyecto=null;
   renderProyectos();
+  // Flush de updates en vivo que se difirieron mientras el detalle estaba abierto
+  if(typeof flushPendingLiveUpdate==='function')setTimeout(flushPendingLiveUpdate,80);
 }
 
 async function cerrarProyecto(id){
@@ -6116,6 +6783,170 @@ async function cerrarProyecto(id){
   currentProyecto=withHoras;
   renderProyectoDetalle(currentProyecto,horas,empleado);
   showToast('✓ Proyecto marcado como completado');
+  // ── CAPA 2: Archivado automático del expediente ─────────────────
+  // Si el proyecto tiene fotos, ofrecer archivar al PDF y liberar espacio.
+  const fotosCount=(currentProyecto.fotos||[]).length;
+  if(fotosCount>0&&!currentProyecto.archivedAt){
+    setTimeout(()=>{ofrecerArchivarProyecto(currentProyecto.id);},900);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SISTEMA DE 3 CAPAS — Gestión de espacio en Supabase Free Tier
+// ════════════════════════════════════════════════════════════════════
+// Capa 1: Fotos comprimidas en upload (compressImageForSync, 800px JPEG q=0.7)
+// Capa 2: Archivado automático al completar proyecto:
+//   1. Genera PDF expediente con todas las fotos embebidas
+//   2. Lo comparte vía share sheet (Drive, Gmail, WhatsApp, descarga local)
+//   3. Borra proyecto_fotos del cloud (Supabase) → libera DB
+//   4. Limpia fotos[] del proyecto local → libera IndexedDB
+//   5. Marca proyecto.archivedAt para que la UI muestre estado "archivado"
+// Capa 3: El share sheet de Android permite enviar a Google Drive,
+//   logrando backup en infraestructura externa sin OAuth.
+// ════════════════════════════════════════════════════════════════════
+async function ofrecerArchivarProyecto(proyectoId){
+  const p=await getProyecto(proyectoId);
+  if(!p||!(p.fotos||[]).length)return;
+  const fotosCount=p.fotos.length;
+  // Estimar peso aproximado (135 KB por foto base64 en DB)
+  const sizeKB=Math.round(fotosCount*135);
+  const sizeStr=sizeKB>1024?(sizeKB/1024).toFixed(1)+' MB':sizeKB+' KB';
+  const msg=
+    '📦 Archivar expediente del proyecto\n\n'+
+    'Este proyecto tiene '+fotosCount+' foto'+(fotosCount!==1?'s':'')+' (~'+sizeStr+').\n\n'+
+    'Al archivar:\n'+
+    '1. Se genera el PDF expediente con TODAS las fotos\n'+
+    '2. Lo compartes a Drive / Gmail / WhatsApp (backup externo)\n'+
+    '3. Las fotos individuales se liberan del cloud Supabase\n'+
+    '4. El PDF queda como evidencia permanente\n\n'+
+    '¿Archivar ahora? (Recomendado para liberar espacio del plan Free)';
+  if(confirm(msg)){
+    await archivarProyectoCompletado(proyectoId);
+  }
+}
+
+async function archivarProyectoCompletado(proyectoId){
+  const p=await getProyecto(proyectoId);
+  if(!p){showToast('Proyecto no encontrado');return;}
+  const fotos=p.fotos||[];
+  if(!fotos.length){showToast('No hay fotos que archivar');return;}
+  const fotosCount=fotos.length;
+  try{
+    showLoader('Generando PDF expediente con '+fotosCount+' fotos...');
+    // 1. Generar y compartir el PDF (reutiliza exportarProyectoPDF)
+    await exportarProyectoPDF(proyectoId);
+    hideLoader();
+    // 2. Esperar para que el usuario interactúe con el share sheet
+    await new Promise(r=>setTimeout(r,1500));
+    // 3. Confirmar borrado del cloud
+    const confirmar=confirm(
+      '✓ PDF expediente generado y compartido.\n\n'+
+      '⚠ IMPORTANTE: Asegúrate de haberlo guardado en Google Drive, '+
+      'Email, o un lugar seguro ANTES de continuar. El PDF es la única copia '+
+      'permanente de las fotos.\n\n'+
+      '¿Liberar las '+fotosCount+' fotos del cloud Supabase?\n\n'+
+      'Esto NO se puede deshacer.'
+    );
+    if(!confirmar){showToast('✓ PDF generado · fotos conservadas en cloud');return;}
+    // 4. Borrar fotos del cloud
+    showLoader('Liberando espacio en cloud...');
+    let borradas=0,fallidas=0;
+    for(const f of fotos){
+      if(f.supabaseFotoId){
+        const ok=await deleteFotoSupabase(f.supabaseFotoId);
+        if(ok)borradas++;else fallidas++;
+      }
+    }
+    // 5. Vaciar fotos en local + marcar archivado
+    const archivado={
+      ...p,fotos:[],
+      archivedAt:new Date().toISOString(),
+      archivedFotosCount:fotosCount,
+      archivedBy:currentUser||'admin'
+    };
+    await updateProyecto(archivado);
+    if(supabaseAvailable&&p.supabaseId)await syncProyectoToSupabase(archivado);
+    currentProyecto=archivado;
+    hideLoader();
+    const sizeMB=(borradas*135/1024).toFixed(2);
+    let toastMsg='✓ '+borradas+' foto'+(borradas!==1?'s':'')+' archivadas · ~'+sizeMB+' MB liberados';
+    if(fallidas>0)toastMsg+=' ⚠ '+fallidas+' fallaron';
+    showToast(toastMsg);
+    try{await logAudit('PROYECTO_ARCHIVADO',currentUser||'admin',{proyectoId:p.id,nombre:p.nombre,fotos:borradas,fallidas,bytesLiberados:borradas*135*1024});}catch(_){}
+    // Refrescar UI
+    const {horas,empleado}=await calcHorasProyecto(p.empleados||[],p.fechaInicio,p.fechaFin);
+    renderProyectoDetalle(archivado,horas,empleado);
+  }catch(err){
+    hideLoader();
+    console.error('archivarProyectoCompletado:',err);
+    showToast('❌ Error al archivar: '+(err&&err.message||err));
+  }
+}
+
+// ── Estimar uso del Free tier de Supabase ──────────────────────
+// Free tier: 500 MB Database. Las fotos van como base64 en proyecto_fotos.data_url.
+async function estimarUsoCloud(){
+  try{
+    const proyectos=await getAllProyectos();
+    let fotosActivas=0,fotosBytes=0,proyectosArchivables=0,proyectosArchivablesFotos=0;
+    proyectos.forEach(p=>{
+      const fotos=p.fotos||[];
+      fotosActivas+=fotos.length;
+      // Estimar bytes: data_url base64 promedio ~135 KB después de compressImageForSync
+      fotos.forEach(f=>{
+        if(f.dataUrl)fotosBytes+=f.dataUrl.length; // base64 length ≈ bytes
+        else fotosBytes+=135*1024;
+      });
+      // Proyectos completados con fotos sin archivar
+      if(p.estado==='completado'&&!p.archivedAt&&fotos.length>0){
+        proyectosArchivables++;
+        proyectosArchivablesFotos+=fotos.length;
+      }
+    });
+    const recordsCount=allRecords?allRecords.length:0;
+    // Cada record en DB: ~1 KB (id, usuario, tipo, fecha, hora, timestamp, lat/lng, etc.)
+    const recordsBytes=recordsCount*1024;
+    const totalBytes=fotosBytes+recordsBytes;
+    const totalMB=totalBytes/(1024*1024);
+    const fotosMB=fotosBytes/(1024*1024);
+    const recordsMB=recordsBytes/(1024*1024);
+    const archivablesBytes=proyectosArchivablesFotos*135*1024;
+    return {
+      usadoMB:totalMB,
+      pctUsado:(totalMB/500)*100,
+      alerta:totalMB>350, // alerta a 70% del límite
+      fotosActivas,fotosMB,
+      recordsCount,recordsMB,
+      proyectosArchivables,
+      proyectosArchivablesMB:archivablesBytes/(1024*1024)
+    };
+  }catch(e){
+    console.warn('estimarUsoCloud:',e);
+    return {usadoMB:0,pctUsado:0,alerta:false,fotosActivas:0,fotosMB:0,recordsCount:0,recordsMB:0,proyectosArchivables:0,proyectosArchivablesMB:0};
+  }
+}
+
+// ── Archivar en lote todos los proyectos completados con fotos ──
+async function archivarTodosLosCompletados(){
+  const proyectos=await getAllProyectos();
+  const candidatos=proyectos.filter(p=>p.estado==='completado'&&!p.archivedAt&&(p.fotos||[]).length>0);
+  if(!candidatos.length){showToast('No hay proyectos pendientes de archivar');return;}
+  const totalFotos=candidatos.reduce((s,p)=>s+(p.fotos||[]).length,0);
+  const sizeMB=(totalFotos*135/1024).toFixed(1);
+  const msg=
+    '📦 Archivar '+candidatos.length+' proyecto'+(candidatos.length!==1?'s':'')+' en lote\n\n'+
+    'Se generará un PDF expediente por cada uno '+
+    '('+totalFotos+' fotos en total, ~'+sizeMB+' MB).\n\n'+
+    'Tendrás que compartir cada PDF a Drive/Email antes de que se borren las fotos del cloud.\n\n'+
+    '¿Continuar?';
+  if(!confirm(msg))return;
+  for(const p of candidatos){
+    await archivarProyectoCompletado(p.id);
+    // Pausa breve entre proyectos para que el share sheet se cierre
+    await new Promise(r=>setTimeout(r,800));
+  }
+  showToast('✓ Archivado en lote completado');
+  if(typeof renderAdminSettings==='function')renderAdminSettings();
 }
 
 async function reabrirProyecto(id){
@@ -6235,21 +7066,59 @@ async function confirmarFotosProyecto(){
   if(!p)return;
   const hora=new Date().toLocaleTimeString('es-US');
   const fecha=getTodayKey();
-  const nuevasFotos=proyectoFotosPending.map(f=>({...f,nota,usuario:currentUser}));
+  const nuevasFotos=proyectoFotosPending.map(f=>({...f,nota,usuario:currentUser,hora,fecha}));
+  // Sync fotos a Supabase PRIMERO para capturar el supabaseFotoId antes de guardar local.
+  if(supabaseAvailable&&p.supabaseId){
+    for(const f of nuevasFotos){
+      const sbId=await syncFotoToSupabase(p.supabaseId,f.dataUrl,nota,currentUser,hora,fecha);
+      if(sbId&&typeof sbId!=='boolean') f.supabaseFotoId=sbId;
+    }
+  }
   const updated={...p,fotos:[...(p.fotos||[]),...nuevasFotos]};
   await updateProyecto(updated);
   currentProyecto=updated;
-  // Sync fotos a Supabase
-  if(supabaseAvailable&&p.supabaseId){
-    for(const f of nuevasFotos){
-      await syncFotoToSupabase(p.supabaseId,f.dataUrl,nota,currentUser,hora,fecha);
-    }
-  }
   closeModal('modal-foto-proyecto');
   resetFotoProyectoModal();
   const {horas,empleado}=await calcHorasProyecto(p.empleados||[],p.fechaInicio,p.fechaFin);
   renderProyectoDetalle(currentProyecto,horas,empleado);
   showToast('✓ '+nuevasFotos.length+' foto'+(nuevasFotos.length!==1?'s':'')+' agregada'+(nuevasFotos.length!==1?'s':'')+' al proyecto');
+}
+
+// ── Eliminar UNA foto del proyecto (solo admin) ───────────────
+// Elimina localmente y en Supabase si tenemos el supabaseFotoId.
+async function confirmarEliminarFotoProyecto(proyectoId, fotoIndex){
+  if(!(isAdmin||currentUser===ADMIN_USER)){
+    showToast('⛔ Solo el admin puede eliminar fotos');return;
+  }
+  if(typeof proyectoId!=='number'||typeof fotoIndex!=='number'||fotoIndex<0){
+    showToast('⚠ Índice de foto inválido');return;
+  }
+  const p=await getProyecto(proyectoId);
+  if(!p||!Array.isArray(p.fotos)||!p.fotos[fotoIndex]){
+    showToast('⚠ Foto no encontrada');return;
+  }
+  const foto=p.fotos[fotoIndex];
+  const conf=confirm('¿Eliminar esta foto del proyecto?\n\nEsta acción no se puede deshacer.');
+  if(!conf)return;
+  try{
+    showLoader('Eliminando foto...');
+    if(foto.supabaseFotoId||foto.id){
+      await deleteFotoSupabase(foto.supabaseFotoId||foto.id);
+    }
+    const nuevasFotos=p.fotos.filter((_,i)=>i!==fotoIndex);
+    const updated={...p,fotos:nuevasFotos};
+    await updateProyecto(updated);
+    currentProyecto=updated;
+    try{ await logAudit('Foto Eliminada','Proyecto: '+p.nombre+' — foto índice '+fotoIndex); }catch(_){}
+    hideLoader();
+    const {horas,empleado}=await calcHorasProyecto(p.empleados||[],p.fechaInicio,p.fechaFin);
+    renderProyectoDetalle(currentProyecto,horas,empleado);
+    showToast('✓ Foto eliminada');
+  }catch(err){
+    hideLoader();
+    console.error('confirmarEliminarFotoProyecto:',err);
+    showToast('❌ Error al eliminar foto: '+(err&&err.message||err));
+  }
 }
 
 // ── Exportar PDF del proyecto ────────────────────────────────
@@ -6279,7 +7148,7 @@ async function exportarProyectoPDF(id){
   doc.text('LNI Custom Manufacturing Inc.',32,13);
   doc.setFontSize(8);
   doc.setFont('helvetica','normal');
-  doc.text('Reporte de Proyecto  |  SecureCheck Pro v3.0  |  Generado: '+genDate,32,19);
+  doc.text('Reporte de Proyecto  |  Wylog  |  Generado: '+genDate,32,19);
   doc.setFontSize(7);
   doc.setTextColor(16,185,129);
   doc.text('AUDITORÍA DE PROYECTO',32,25);
@@ -6366,7 +7235,7 @@ async function exportarProyectoPDF(id){
   if(y>255)doc.addPage();
   doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(14,270,202,270);
   doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(150,150,150);
-  doc.text('SecureCheck Pro v3.0  |  LNI Custom Manufacturing  |  Registros con firma digital SHA-256',108,275,{align:'center'});
+  doc.text('Wylog  |  LNI Custom Manufacturing  |  Registros con firma digital SHA-256',108,275,{align:'center'});
 
   hideLoader();
   const filename='Proyecto_'+p.nombre.replace(/[^a-z0-9]/gi,'_')+'_'+new Date().toISOString().slice(0,10)+'.pdf';
