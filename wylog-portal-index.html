@@ -116,6 +116,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Space 
 .btn-g{background:var(--card3);border:1px solid var(--border2);color:var(--text2)}
 .btn-g:hover{border-color:var(--emerald);color:var(--text)}
 .btn-danger{background:var(--red-d);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.btn-qb{background:rgba(45,160,46,0.12);border:1px solid rgba(45,160,46,0.4);color:#5cc25e}
+.btn-qb:hover{background:rgba(45,160,46,0.2);border-color:#2da02e;color:#9ae0a6;transform:translateY(-1px)}
 .btn-sm{padding:6px 11px;font-size:11px}
 
 /* ── KPI STRIP ── */
@@ -508,8 +510,11 @@ tbody td{padding:11px 12px;font-size:12px}
       <div class="ph">
         <div class="ph-t"><h2 data-i18n-d="pageNomina">Cálculo de Nómina</h2><p data-i18n-d="pageNominaSub">Motor de pago on-the-fly — solo lectura, sin modificar registros</p></div>
         <div class="ph-a">
-          <button class="btn btn-g btn-sm" onclick="exportPayrollCSV()">
+          <button class="btn btn-g btn-sm" onclick="exportPayrollCSV()" title="Exportar resumen general como CSV">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV
+          </button>
+          <button class="btn btn-qb btn-sm" onclick="exportPayrollQuickBooksCSV()" title="CSV con desglose Regular/OT/DT listo para importar a QuickBooks Online">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>QuickBooks
           </button>
           <button class="btn btn-p btn-sm" onclick="exportPayrollPDF()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
@@ -1139,9 +1144,150 @@ tbody td{padding:11px 12px;font-size:12px}
   <div id="lb-meta"></div>
 </div>
 
+<!-- ══ MODAL: CONFIRMACIÓN GENÉRICA (reemplaza confirm() y prompt() nativos) ══ -->
+<div class="modal-ov" id="w-confirm-modal">
+  <div class="modal" style="max-width:460px;width:95%;text-align:center">
+    <div id="wc-icon-wrap" style="width:56px;height:56px;border-radius:50%;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);display:flex;align-items:center;justify-content:center;margin:8px auto 14px">
+      <svg id="wc-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <h3 id="wc-title" style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Confirmar acción</h3>
+    <div id="wc-message" style="font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:14px;text-align:left;white-space:pre-wrap;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 14px"></div>
+    <div id="wc-input-wrap" style="display:none;margin-bottom:14px;text-align:left">
+      <label id="wc-input-label" style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;display:block;margin-bottom:6px"></label>
+      <input id="wc-input" type="text" autocomplete="off" style="width:100%;background:rgba(0,0,0,0.4);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color .2s">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="wc-cancel" class="btn-secondary" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text2);padding:11px 16px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">Cancelar</button>
+      <button id="wc-confirm" class="btn-primary-w" style="flex:1.4;background:#ef4444;border:1px solid #ef4444;color:#fff;padding:11px 16px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="wc-confirm-lbl">Confirmar</span>
+      </button>
+    </div>
+  </div>
+</div>
+<style>
+#wc-input:focus{border-color:rgba(0,214,143,0.6)!important;box-shadow:0 0 0 3px rgba(0,214,143,0.12)}
+#wc-cancel:hover{background:rgba(255,255,255,0.08)!important;color:var(--text)!important}
+#wc-confirm:hover{filter:brightness(1.1);transform:translateY(-1px)}
+#w-confirm-modal .modal-hd{display:none}
+</style>
+
 <div id="toast"></div>
 
 <script>
+// ════════════════════════════════════════════════════════════════════
+// DATE HELPERS — Formato US (MM/DD/YYYY) global para el portal
+// Reemplaza toLocaleString('es') hardcoded. El formato siempre es US;
+// los nombres de meses/días sí se localizan según el idioma activo.
+// ════════════════════════════════════════════════════════════════════
+function _i18nLocaleDash(){ return (typeof dashLang!=='undefined' && dashLang==='en') ? 'en-US' : 'es-US'; }
+
+function fmtDateUS(d){
+  const dt = (d instanceof Date) ? d : (d ? new Date(d) : null);
+  if(!dt || isNaN(dt)) return '';
+  return dt.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
+}
+function fmtDateTimeUS(d){
+  const dt = (d instanceof Date) ? d : (d ? new Date(d) : null);
+  if(!dt || isNaN(dt)) return '';
+  return dt.toLocaleString('en-US',{month:'2-digit',day:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'America/Los_Angeles'});
+}
+function fmtTimeUS(d){
+  const dt = (d instanceof Date) ? d : (d ? new Date(d) : null);
+  if(!dt || isNaN(dt)) return '';
+  return dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+function fmtDateLong(d, withWeekday){
+  const dt = (d instanceof Date) ? d : (d ? new Date(d) : null);
+  if(!dt || isNaN(dt)) return '';
+  const opts={year:'numeric',month:'long',day:'numeric'};
+  if(withWeekday!==false)opts.weekday='long';
+  return dt.toLocaleDateString(_i18nLocaleDash(),opts);
+}
+
+// ════════════════════════════════════════════
+//  ⓪ MODAL: confirm() y prompt() custom
+//  Reemplaza los diálogos nativos del navegador con modales que respetan
+//  el branding del portal. Devuelven Promise<boolean|string|null>.
+// ════════════════════════════════════════════
+function wConfirm(opts){
+  // opts: {title, message, confirmLabel, danger, icon}
+  return new Promise(resolve=>{
+    const o = typeof opts==='string' ? {message:opts} : (opts||{});
+    const title = o.title || '¿Continuar?';
+    const message = o.message || '';
+    const confirmLbl = o.confirmLabel || 'Confirmar';
+    const danger = o.danger !== false; // default rojo
+    document.getElementById('wc-title').textContent = title;
+    document.getElementById('wc-message').textContent = message;
+    document.getElementById('wc-confirm-lbl').textContent = confirmLbl;
+    document.getElementById('wc-input-wrap').style.display = 'none';
+    const btn = document.getElementById('wc-confirm');
+    const iconWrap = document.getElementById('wc-icon-wrap');
+    const icon = document.getElementById('wc-icon');
+    if(danger){
+      btn.style.background = '#ef4444'; btn.style.borderColor = '#ef4444';
+      iconWrap.style.background = 'rgba(239,68,68,0.12)';
+      iconWrap.style.borderColor = 'rgba(239,68,68,0.35)';
+      icon.setAttribute('stroke', '#ef4444');
+    } else {
+      btn.style.background = '#10b981'; btn.style.borderColor = '#10b981';
+      iconWrap.style.background = 'rgba(16,185,129,0.12)';
+      iconWrap.style.borderColor = 'rgba(16,185,129,0.35)';
+      icon.setAttribute('stroke', '#10b981');
+    }
+    const closeWith = (val)=>{
+      closeModal('w-confirm-modal');
+      btn.onclick = null;
+      document.getElementById('wc-cancel').onclick = null;
+      resolve(val);
+    };
+    document.getElementById('wc-cancel').onclick = ()=>closeWith(false);
+    btn.onclick = ()=>closeWith(true);
+    openModal('w-confirm-modal');
+  });
+}
+
+function wPrompt(opts){
+  // opts: {title, message, label, placeholder, confirmLabel, defaultValue}
+  return new Promise(resolve=>{
+    const o = typeof opts==='string' ? {message:opts} : (opts||{});
+    const title = o.title || 'Información requerida';
+    const message = o.message || '';
+    const label = o.label || 'Valor';
+    const ph = o.placeholder || '';
+    const def = o.defaultValue || '';
+    const confirmLbl = o.confirmLabel || 'Aceptar';
+    document.getElementById('wc-title').textContent = title;
+    document.getElementById('wc-message').textContent = message;
+    document.getElementById('wc-confirm-lbl').textContent = confirmLbl;
+    document.getElementById('wc-input-label').textContent = label;
+    const inp = document.getElementById('wc-input');
+    inp.value = def; inp.placeholder = ph;
+    document.getElementById('wc-input-wrap').style.display = 'block';
+    // Estilo no-danger para prompts
+    const btn = document.getElementById('wc-confirm');
+    const iconWrap = document.getElementById('wc-icon-wrap');
+    const icon = document.getElementById('wc-icon');
+    btn.style.background = '#3b82f6'; btn.style.borderColor = '#3b82f6';
+    iconWrap.style.background = 'rgba(59,130,246,0.12)';
+    iconWrap.style.borderColor = 'rgba(59,130,246,0.35)';
+    icon.setAttribute('stroke', '#3b82f6');
+    const closeWith = (val)=>{
+      closeModal('w-confirm-modal');
+      btn.onclick = null;
+      document.getElementById('wc-cancel').onclick = null;
+      inp.onkeydown = null;
+      resolve(val);
+    };
+    document.getElementById('wc-cancel').onclick = ()=>closeWith(null);
+    btn.onclick = ()=>closeWith(inp.value);
+    inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); closeWith(inp.value); } };
+    openModal('w-confirm-modal');
+    setTimeout(()=>{ try{inp.focus(); inp.select();}catch(_){} }, 80);
+  });
+}
+
 // ════════════════════════════════════════════
 //  ⓪ LANGUAGE / i18n  (ES ↔ EN)
 // ════════════════════════════════════════════
@@ -1219,7 +1365,24 @@ function t_d(key){
 
 function applyLangDash(){
   document.querySelectorAll('[data-i18n-d]').forEach(el => {
-    el.textContent = t_d(el.getAttribute('data-i18n-d'));
+    const v = t_d(el.getAttribute('data-i18n-d'));
+    if(v) el.textContent = v;
+  });
+  document.querySelectorAll('[data-i18n-d-ph]').forEach(el => {
+    const v = t_d(el.getAttribute('data-i18n-d-ph'));
+    if(v) el.placeholder = v;
+  });
+  document.querySelectorAll('[data-i18n-d-title]').forEach(el => {
+    const v = t_d(el.getAttribute('data-i18n-d-title'));
+    if(v) el.title = v;
+  });
+  document.querySelectorAll('[data-i18n-d-aria]').forEach(el => {
+    const v = t_d(el.getAttribute('data-i18n-d-aria'));
+    if(v) el.setAttribute('aria-label', v);
+  });
+  document.querySelectorAll('[data-i18n-d-html]').forEach(el => {
+    const v = t_d(el.getAttribute('data-i18n-d-html'));
+    if(v) el.innerHTML = v;
   });
   const nextLbl = dashLang === 'es' ? 'EN' : 'ES';
   const dashBtn = document.getElementById('dash-lang-btn');
@@ -1235,8 +1398,37 @@ function toggleLangDash(){
   applyLangDash();
 }
 
-// Apply language on page load
-document.addEventListener('DOMContentLoaded', applyLangDash);
+// MutationObserver: traduce automáticamente cualquier nodo nuevo con data-i18n-d*.
+// Esto asegura que modales/listas/tablas re-renderizadas dinámicamente se traducen
+// sin que cada función render tenga que llamar applyLangDash() manualmente.
+let _dashI18nDebounce=null;
+function _initDashI18nObserver(){
+  if(window._dashI18nObserverActive) return;
+  const I18N_ATTRS = ['data-i18n-d','data-i18n-d-ph','data-i18n-d-title','data-i18n-d-aria','data-i18n-d-html'];
+  const SEL = I18N_ATTRS.map(a=>'['+a+']').join(',');
+  const obs = new MutationObserver(muts=>{
+    let need=false;
+    for(const m of muts){
+      for(const n of m.addedNodes){
+        if(n.nodeType!==1) continue;
+        if(n.matches?.(SEL) || n.querySelector?.(SEL)){ need=true; break; }
+      }
+      if(need) break;
+    }
+    if(need){
+      clearTimeout(_dashI18nDebounce);
+      _dashI18nDebounce=setTimeout(applyLangDash,30);
+    }
+  });
+  obs.observe(document.body||document.documentElement,{childList:true,subtree:true});
+  window._dashI18nObserverActive=true;
+}
+
+// Apply language on page load + init observer
+document.addEventListener('DOMContentLoaded', ()=>{
+  applyLangDash();
+  _initDashI18nObserver();
+});
 
 // ════════════════════════════════════════════
 //  ① SECURITY LAYER
@@ -1641,7 +1833,7 @@ function projectRAG(proj){
 //  ⑩ PAGE: OBRAS
 // ════════════════════════════════════════════
 function renderObras(){
-  document.getElementById('obras-ts').textContent='Actualizado: '+new Date().toLocaleTimeString('es',{timeZone:'America/Los_Angeles'});
+  document.getElementById('obras-ts').textContent='Actualizado: '+new Date().toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'});
 
   // KPIs
   const today=getTodayLA();
@@ -1699,14 +1891,14 @@ function renderObras(){
         <div class="obra-top">
           <div>
             <div class="obra-name">${s(p.nombre)}</div>
-            <div class="obra-dates">${p.fecha_inicio?'Inicio: '+new Date(p.fecha_inicio).toLocaleDateString('es',{timeZone:'UTC'}):''} ${p.notas?'• '+s(p.notas.slice(0,40)):''}</div>
+            <div class="obra-dates">${p.fecha_inicio?'Inicio: '+fmtDateUS(p.fecha_inicio):''} ${p.notas?'• '+s(p.notas.slice(0,40)):''}</div>
           </div>
           <div class="rag ${ragCls[rag]}">${ragLabel[rag]}</div>
         </div>
         <div class="obra-hrs">
           <span class="obra-hrs-val">${span?span.spanH.toFixed(1)+'h':'—'}</span>
           <span class="obra-hrs-lbl">hoy${span?.ongoing?' (en curso)':''}</span>
-          ${span?`<span style="color:var(--text3);font-size:10px;margin-left:auto">${span.firstIn.toLocaleTimeString('es',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}→${span.ongoing?'ahora':span.lastOut.toLocaleTimeString('es',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}</span>`:''}
+          ${span?`<span style="color:var(--text3);font-size:10px;margin-left:auto">${span.firstIn.toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}→${span.ongoing?'ahora':span.lastOut.toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}</span>`:''}
         </div>
         <div class="obra-bar-wrap"><div class="obra-bar" style="width:${barW}%"></div></div>
         <div class="obra-team" style="margin-bottom:10px">${avatarsHTML}${extraHTML}</div>
@@ -1737,7 +1929,7 @@ function openObraModal(nombre){
   const tlHTML=spans.slice(-14).reverse().map(sp=>{
     const maxW=10; const w=Math.min(100,(sp.spanH/maxW)*100);
     return`<div class="tl-row">
-      <div class="tl-date">${new Date(sp.date+'T12:00:00').toLocaleDateString('es',{timeZone:'UTC',weekday:'short',day:'2-digit',month:'short'})}</div>
+      <div class="tl-date">${new Date(sp.date+'T12:00:00').toLocaleDateString(_i18nLocaleDash(),{timeZone:'UTC',weekday:'short',day:'2-digit',month:'short'})}</div>
       <div class="tl-bar-wrap"><div class="tl-bar" style="width:${w}%">${sp.spanH.toFixed(1)}h${sp.ongoing?' ⟳':''}</div></div>
       <div class="tl-emp">${sp.empCount} 👷</div>
     </div>`;
@@ -1793,9 +1985,9 @@ function renderAnalisis(){
       <div class="tbl-wrap"><table>
         <thead><tr><th>Fecha</th><th>Primer Entrada</th><th>Última Salida</th><th>Span Total</th><th>Empleados</th><th>Estado</th></tr></thead>
         <tbody>${spans.slice().reverse().slice(0,30).map(sp=>`<tr>
-          <td>${new Date(sp.date+'T12:00:00').toLocaleDateString('es',{timeZone:'UTC',weekday:'short',day:'2-digit',month:'short',year:'numeric'})}</td>
-          <td>${sp.firstIn.toLocaleTimeString('es',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}</td>
-          <td>${sp.ongoing?'<span style="color:var(--emerald)">En curso</span>':sp.lastOut.toLocaleTimeString('es',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}</td>
+          <td>${new Date(sp.date+'T12:00:00').toLocaleDateString(_i18nLocaleDash(),{timeZone:'UTC',weekday:'short',day:'2-digit',month:'short',year:'numeric'})}</td>
+          <td>${sp.firstIn.toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}</td>
+          <td>${sp.ongoing?'<span style="color:var(--emerald)">En curso</span>':sp.lastOut.toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}</td>
           <td style="color:var(--emerald);font-weight:700">${sp.spanH.toFixed(2)}h</td>
           <td>${sp.empCount} 👷</td>
           <td>${sp.ongoing?'<span class="badge badge-g">Activo</span>':'<span class="badge badge-gray">Completo</span>'}</td>
@@ -1810,7 +2002,7 @@ function renderAnalisis(){
     chAn1=new Chart(document.getElementById('an-ch1'),{
       type:'line',
       data:{
-        labels:spans.map(s=>new Date(s.date+'T12:00:00').toLocaleDateString('es',{timeZone:'UTC',month:'short',day:'numeric'})),
+        labels:spans.map(s=>new Date(s.date+'T12:00:00').toLocaleDateString(_i18nLocaleDash(),{timeZone:'UTC',month:'short',day:'numeric'})),
         datasets:[{
           label:'Horas de obra',data:spans.map(s=>s.spanH),
           fill:true,borderColor:'#00d68f',backgroundColor:'rgba(0,214,143,.08)',
@@ -1912,7 +2104,7 @@ function renderMap(){
     m.bindPopup(`<div style="font-family:Space Grotesk,sans-serif;min-width:160px;font-size:12px">
       <b style="font-size:13px">${s(emp?.nombre||r.usuario)}</b><br/>
       <span style="color:#6b7280">${r.tipo}</span><br/>
-      ${r._ts.toLocaleString('es',{timeZone:'America/Los_Angeles',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}<br/>
+      ${r._ts.toLocaleString(_i18nLocaleDash(),{timeZone:'America/Los_Angeles',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}<br/>
       ${r.proyecto?`<span style="color:${color}">📁 ${s(r.proyecto)}</span>`:''}
     </div>`);
     mapMarkers.push(m);
@@ -2022,8 +2214,8 @@ async function exportAuditPDF(){
   doc.setFontSize(22);doc.setFont('helvetica','bold');
   doc.text('REPORTE DE AUDITORÍA',W/2,60,{align:'center'});
   doc.setTextColor(148,163,184);doc.setFontSize(12);doc.setFont('helvetica','normal');
-  doc.text('SecureCheck Pro — Evidencias Fotográficas',W/2,72,{align:'center'});
-  doc.text('Generado: '+new Date().toLocaleString('es',{timeZone:'America/Los_Angeles'}),W/2,82,{align:'center'});
+  doc.text('Wylog — Evidencias Fotográficas',W/2,72,{align:'center'});
+  doc.text('Generado: '+fmtDateTimeUS(new Date()),W/2,82,{align:'center'});
   doc.text(`Total de fotos: ${ids.length}`,W/2,92,{align:'center'});
 
   for(const i of ids){
@@ -2049,7 +2241,7 @@ async function exportAuditPDF(){
     doc.text(`No. Evidencia: ${i+1} de ${ids.length}`,14,189);
   }
 
-  doc.save(`auditoria-securecheck-${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`auditoria-wylog-${new Date().toISOString().slice(0,10)}.pdf`);
   toast(`PDF generado con ${ids.length} fotos`,'ok');
 }
 
@@ -2096,7 +2288,7 @@ function renderPresencia(){
   for(let i=days-1;i>=0;i--){
     const d=new Date(Date.now()-i*864e5);
     const key=d.toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'});
-    labels.push(d.toLocaleDateString('es',{timeZone:'America/Los_Angeles',month:'short',day:'numeric'}));
+    labels.push(d.toLocaleDateString(_i18nLocaleDash(),{timeZone:'America/Los_Angeles',month:'short',day:'numeric'}));
     emps.forEach(e=>{
       if(!dsMap[e.usuario]) dsMap[e.usuario]={label:cap(e.nombre||e.usuario),data:[]};
       const dayRecs=recs.filter(r=>r.usuario===e.usuario&&r._ts.toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'})===key&&r.tipo==='Salida'&&r.horas_neto);
@@ -2523,9 +2715,9 @@ function exportPayrollCSV(){
   const from=document.getElementById('nm-from').value;
   const to=document.getElementById('nm-to').value;
   const lines=[
-    `"SecureCheck Pro — Reporte de Nómina"`,
+    `"Wylog — Reporte de Nómina"`,
     `"Período","${s(from)} al ${s(to)}"`,
-    `"Generado","${new Date().toLocaleString('es',{timeZone:'America/Los_Angeles'})}"`,
+    `"Generado","${fmtDateTimeUS(new Date())}"`,
     '',
     '"Empleado","Usuario","Días","Hrs Brutas","Hrs Lunch","Hrs Netas","Tasa $/hr","Total $"'
   ];
@@ -2553,6 +2745,237 @@ function exportPayrollCSV(){
   toast('CSV exportado','ok');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// CSV PARA QUICKBOOKS — Datos delicados, código defensivo
+// ════════════════════════════════════════════════════════════════════
+// Genera un CSV listo para importar a QuickBooks Online o Desktop con:
+//  • Resumen por empleado en el período (Regular / OT 1.5x / DT 2x)
+//  • Desglose diario por jornada para timesheet import
+//  • California Daily Overtime aplicado correctamente:
+//      - ≤8h diarias  → Regular
+//      - 8h–12h       → Overtime (1.5x)
+//      - >12h         → Doubletime (2x)
+//  • Fechas en formato US MM/DD/YYYY (lo que QB espera)
+//  • Escape CSV correcto (comillas internas duplicadas)
+//  • BOM UTF-8 para que Excel/QB lean acentos correctamente
+//  • CRLF como line ending para máxima compatibilidad Windows
+// ════════════════════════════════════════════════════════════════════
+function exportPayrollQuickBooksCSV(){
+  if(!lastPayroll.length){toast('Genera un cálculo primero','ko');return;}
+  const fromVal = document.getElementById('nm-from').value;
+  const toVal   = document.getElementById('nm-to').value;
+  if(!fromVal || !toVal){ toast('Selecciona el período primero','ko'); return; }
+
+  // ── Helper: escape CSV value (RFC 4180) ──────────────────────────
+  // Envuelve siempre en comillas y duplica las comillas internas. Esto
+  // protege contra nombres con comas (García, Juan), saltos de línea,
+  // y comillas dentro del texto.
+  const csv = v => {
+    if(v === null || v === undefined) return '""';
+    const s = String(v).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  // ── Helper: convertir YYYY-MM-DD → MM/DD/YYYY (formato US para QB) ──
+  const usDate = iso => {
+    if(!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(!m) return iso;
+    return `${m[2]}/${m[3]}/${m[1]}`;
+  };
+
+  // ── Helper: California Daily Overtime split ──────────────────────
+  // Recibe minutos totales del DÍA, devuelve {regMin, otMin, dtMin}
+  // Reglas California Labor Code §510:
+  //   ≤480 min (8h)     → todo regular
+  //   480-720 min (12h) → 480 reg + (resto) OT
+  //   >720 min          → 480 reg + 240 OT + (resto) DT
+  const calOTSplit = totalMin => {
+    if(totalMin <= 480) return { regMin: totalMin, otMin: 0, dtMin: 0 };
+    if(totalMin <= 720) return { regMin: 480, otMin: totalMin - 480, dtMin: 0 };
+    return { regMin: 480, otMin: 240, dtMin: totalMin - 720 };
+  };
+
+  const min2hrs = m => Math.round((m / 60) * 100) / 100; // 2 decimal places
+
+  // ── Validar empleados con datos ──────────────────────────────────
+  const valid = lastPayroll.filter(r => !r.sinDatos && !r.error);
+  if(!valid.length){ toast('No hay datos válidos para exportar','ko'); return; }
+
+  // Empleados sin tarifa: se EXCLUYEN del export (QB necesita rate>0
+  // para calcular el cheque correctamente). Avisamos al usuario.
+  const sinRate = valid.filter(r => !r.rate || r.rate <= 0);
+  const conRate = valid.filter(r => r.rate > 0);
+  if(!conRate.length){
+    toast('Ningún empleado tiene tarifa configurada — no se puede exportar','ko');
+    return;
+  }
+
+  // ── Calcular split por día por empleado, agrupando jornadas múltiples ──
+  // Si un empleado tiene 2 jornadas el mismo día (entrada-salida-entrada-salida),
+  // se SUMAN los minutos antes de aplicar la regla de OT diaria. Esto es crítico
+  // para que California OT se calcule sobre el total real del día.
+  const empResumen = []; // {nombre, usuario, regHrs, otHrs, dtHrs, rate, totalPay, dailyRows[]}
+
+  conRate.forEach(r => {
+    // Group by date
+    const byDate = {};
+    r.jornadas.forEach(j => {
+      const d = j.fecha;
+      if(!byDate[d]) byDate[d] = { totalMin: 0, jornadas: 0, proyectos: new Set() };
+      byDate[d].totalMin += j.minNeto;
+      byDate[d].jornadas++;
+      if(j.proyecto && j.proyecto !== '—') byDate[d].proyectos.add(j.proyecto);
+    });
+
+    let totRegMin = 0, totOtMin = 0, totDtMin = 0;
+    const dailyRows = [];
+    Object.keys(byDate).sort().forEach(d => {
+      const tot = byDate[d].totalMin;
+      const sp = calOTSplit(tot);
+      totRegMin += sp.regMin;
+      totOtMin  += sp.otMin;
+      totDtMin  += sp.dtMin;
+      dailyRows.push({
+        date: d,
+        totalMin: tot,
+        regMin: sp.regMin,
+        otMin: sp.otMin,
+        dtMin: sp.dtMin,
+        proyectos: [...byDate[d].proyectos].join(', ') || '—'
+      });
+    });
+
+    // Cálculo monetario en cents (evita float drift)
+    const rateCents = Math.round(r.rate * 100);
+    const regCents = Math.round((totRegMin / 60) * rateCents);
+    const otCents  = Math.round((totOtMin  / 60) * rateCents * 1.5);
+    const dtCents  = Math.round((totDtMin  / 60) * rateCents * 2);
+    const totalCents = regCents + otCents + dtCents;
+
+    empResumen.push({
+      nombre: r.nombre,
+      usuario: r.usuario,
+      regHrs: min2hrs(totRegMin),
+      otHrs:  min2hrs(totOtMin),
+      dtHrs:  min2hrs(totDtMin),
+      rate: r.rate,
+      totalPay: totalCents / 100,
+      dailyRows
+    });
+  });
+
+  // ── Construir CSV ────────────────────────────────────────────────
+  const lines = [];
+  // BOM UTF-8 va al inicio del archivo (lo agregamos al final como prefijo en el blob)
+
+  // Encabezado descriptivo
+  lines.push(csv('Wylog — Export para QuickBooks'));
+  lines.push([csv('Período'), csv(usDate(fromVal) + ' al ' + usDate(toVal))].join(','));
+  lines.push([csv('Generado'), csv(new Date().toLocaleString('en-US', {timeZone:'America/Los_Angeles'}))].join(','));
+  lines.push([csv('Cálculo OT/DT'), csv('California Daily (>8h OT 1.5x · >12h DT 2x)')].join(','));
+  if(sinRate.length){
+    lines.push([csv('Aviso'), csv(`${sinRate.length} empleado(s) sin tarifa fueron OMITIDOS: ${sinRate.map(r=>r.usuario).join(', ')}`)].join(','));
+  }
+  lines.push(''); // blank line
+
+  // ── BLOQUE 1: Resumen por empleado (lo que el contador escribe en QB Payroll) ──
+  lines.push(csv('=== RESUMEN POR EMPLEADO (importar a QB Payroll) ==='));
+  lines.push([
+    csv('Employee Name'),       // Nombre del empleado (debe coincidir con el de QB)
+    csv('Pay Period Start'),    // MM/DD/YYYY
+    csv('Pay Period End'),      // MM/DD/YYYY
+    csv('Regular Hours'),       // ≤8h diarias
+    csv('Overtime Hours'),      // 8-12h diarias (1.5x)
+    csv('Doubletime Hours'),    // >12h diarias (2x)
+    csv('Hourly Rate'),         // tarifa base
+    csv('Regular Pay'),
+    csv('Overtime Pay'),
+    csv('Doubletime Pay'),
+    csv('Total Pay'),
+    csv('Memo')                 // referencia interna
+  ].join(','));
+
+  let TOT_REG = 0, TOT_OT = 0, TOT_DT = 0, TOT_PAY = 0;
+  empResumen.forEach(e => {
+    const regPay = (e.regHrs * e.rate);
+    const otPay  = (e.otHrs  * e.rate * 1.5);
+    const dtPay  = (e.dtHrs  * e.rate * 2);
+    TOT_REG += e.regHrs;
+    TOT_OT  += e.otHrs;
+    TOT_DT  += e.dtHrs;
+    TOT_PAY += e.totalPay;
+    lines.push([
+      csv(cap(e.nombre)),
+      csv(usDate(fromVal)),
+      csv(usDate(toVal)),
+      csv(e.regHrs.toFixed(2)),
+      csv(e.otHrs.toFixed(2)),
+      csv(e.dtHrs.toFixed(2)),
+      csv(e.rate.toFixed(2)),
+      csv(regPay.toFixed(2)),
+      csv(otPay.toFixed(2)),
+      csv(dtPay.toFixed(2)),
+      csv(e.totalPay.toFixed(2)),
+      csv(`Wylog ${usDate(fromVal)}-${usDate(toVal)} · ${e.usuario}`)
+    ].join(','));
+  });
+
+  // Fila de TOTALES (verificación cruzada para el contador)
+  lines.push([
+    csv('TOTALES'), csv(''), csv(''),
+    csv(TOT_REG.toFixed(2)),
+    csv(TOT_OT.toFixed(2)),
+    csv(TOT_DT.toFixed(2)),
+    csv(''), csv(''), csv(''), csv(''),
+    csv(TOT_PAY.toFixed(2)),
+    csv(`${empResumen.length} empleado(s)`)
+  ].join(','));
+  lines.push('');
+
+  // ── BLOQUE 2: Detalle día por día (timesheet import) ─────────────
+  lines.push(csv('=== DETALLE DIARIO (timesheet import opcional) ==='));
+  lines.push([
+    csv('Employee Name'),
+    csv('Date'),
+    csv('Total Hours'),
+    csv('Regular Hours'),
+    csv('Overtime Hours'),
+    csv('Doubletime Hours'),
+    csv('Service/Project'),
+    csv('Notes')
+  ].join(','));
+
+  empResumen.forEach(e => {
+    e.dailyRows.forEach(d => {
+      const totH = min2hrs(d.totalMin);
+      const noteParts = [];
+      if(d.totalMin > 720) noteParts.push('Día largo (>12h)');
+      else if(d.totalMin > 480) noteParts.push('Con horas extra');
+      lines.push([
+        csv(cap(e.nombre)),
+        csv(usDate(d.date)),
+        csv(totH.toFixed(2)),
+        csv(min2hrs(d.regMin).toFixed(2)),
+        csv(min2hrs(d.otMin).toFixed(2)),
+        csv(min2hrs(d.dtMin).toFixed(2)),
+        csv(d.proyectos),
+        csv(noteParts.join(' · '))
+      ].join(','));
+    });
+  });
+
+  // ── Generar archivo con BOM + CRLF ───────────────────────────────
+  const BOM = '﻿';
+  const csvText = BOM + lines.join('\r\n') + '\r\n';
+  const filename = `wylog_quickbooks_${fromVal}_a_${toVal}.csv`;
+  dlFile(filename, csvText, 'text/csv;charset=utf-8');
+
+  let msg = `✓ ${empResumen.length} empleado(s) exportado(s) para QuickBooks`;
+  if(sinRate.length) msg += ` · ⚠ ${sinRate.length} omitido(s) por falta de tarifa`;
+  toast(msg, 'ok');
+}
+
 function exportPayrollPDF(){
   if(!lastPayroll.length){toast('Genera un cálculo primero','ko');return;}
   const {jsPDF}=window.jspdf;
@@ -2567,9 +2990,9 @@ function exportPayrollPDF(){
   doc.setFillColor(0,214,143);
   doc.rect(0,0,4,30,'F');
   doc.setTextColor(0,214,143); doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('SecureCheck Pro — Reporte de Nómina',10,12);
+  doc.text('Wylog — Reporte de Nómina',10,12);
   doc.setTextColor(148,163,184); doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text(`Período: ${from} → ${to}   |   Generado: ${new Date().toLocaleString('es',{timeZone:'America/Los_Angeles'})}`,10,20);
+  doc.text(`Período: ${from} → ${to}   |   Generado: ${fmtDateTimeUS(new Date())}`,10,20);
   doc.text('Este documento es de solo lectura. Los cálculos no modifican la base de datos de asistencia.',10,26);
 
   // ── Summary table
@@ -2642,7 +3065,7 @@ function setConn(state,label){
 }
 
 function setSyncLabel(){
-  document.getElementById('sync-lbl').textContent='Sync '+new Date().toLocaleTimeString('es',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('sync-lbl').textContent='Sync '+new Date().toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 
 function closeModal(id){ document.getElementById(id).classList.remove('on'); }
@@ -3140,8 +3563,13 @@ async function emitirComprobante(){
   const btn=document.getElementById('ep-emit-btn');
   const empName=cap(allEmployees.find(e=>e.usuario===usuario)?.nombre||usuario);
 
-  const confirmTxt=`¿Emitir comprobante para ${empName}?\n\nPeríodo: ${fromStr} → ${toStr}\nHoras pagables: ${netoHrs.toFixed(2)}h\nTarifa: $${rate.toFixed(2)}/hr\nTotal: $${totalPay.toFixed(2)}\n\nEl empleado recibirá este comprobante en su app.`;
-  if(!confirm(confirmTxt)) return;
+  const ok = await wConfirm({
+    title: `Emitir comprobante a ${empName}`,
+    message: `Período: ${fromStr} → ${toStr}\nHoras pagables: ${netoHrs.toFixed(2)}h\nTarifa: $${rate.toFixed(2)}/hr\nTotal: $${totalPay.toFixed(2)}\n\nEl empleado recibirá este comprobante en su app.`,
+    confirmLabel: 'Emitir comprobante',
+    danger: false
+  });
+  if(!ok) return;
 
   if(btn){btn.disabled=true;btn.textContent='Emitiendo...';}
   try{
@@ -3306,7 +3734,7 @@ function renderKsUI(){
     if(metaEl){
       metaEl.style.display='block';
       document.getElementById('ks-by').textContent = ksState.activated_by||'—';
-      document.getElementById('ks-at').textContent = ksState.activated_at ? new Date(ksState.activated_at).toLocaleString('es') : '—';
+      document.getElementById('ks-at').textContent = ksState.activated_at ? fmtDateTimeUS(ksState.activated_at) : '—';
     }
     if(noteDisp&&ksState.note){ noteDisp.style.display='block'; document.getElementById('ks-note-text').textContent=ksState.note; }
     else if(noteDisp) noteDisp.style.display='none';
@@ -3341,7 +3769,7 @@ function renderKsUI(){
   // Show scheduled time if set
   if(ksCurrentMode==='scheduled'&&ksState.scheduled_at){
     const st=document.getElementById('ks-sched-status');
-    if(st) st.textContent='Programado para: '+new Date(ksState.scheduled_at).toLocaleString('es');
+    if(st) st.textContent='Programado para: '+fmtDateTimeUS(ksState.scheduled_at);
   }
   if(ksCurrentMode==='recurring'&&ksState.scheduled_cron){
     const st=document.getElementById('ks-recur-status');
@@ -3360,9 +3788,15 @@ async function ksToggle(){
     const openRes = await sbRpc('get_open_shifts', {}).catch(()=>[]);
     const count   = Array.isArray(openRes) ? openRes.length : 0;
     const msg     = count > 0
-      ? `¿Cerrar el sistema?\n\nHay ${count} jornada(s) activa(s). Al cerrar:\n• Los empleados NO podrán iniciar nuevas jornadas\n• Las jornadas activas NO se cerrarán automáticamente (usa "Forzar cierre" para eso)\n\n¿Continuar?`
-      : '¿Cerrar el sistema?\n\nLos empleados no podrán iniciar nuevas jornadas.\n\n¿Continuar?';
-    if(!confirm(msg)) return;
+      ? `Hay ${count} jornada(s) activa(s). Al cerrar:\n• Los empleados NO podrán iniciar nuevas jornadas\n• Las jornadas activas NO se cerrarán automáticamente (usa "Forzar cierre" para eso)`
+      : 'Los empleados no podrán iniciar nuevas jornadas mientras el sistema esté cerrado.';
+    const ok = await wConfirm({
+      title: '¿Cerrar el sistema?',
+      message: msg,
+      confirmLabel: 'Cerrar sistema',
+      danger: true
+    });
+    if(!ok) return;
   }
 
   try{
@@ -3398,10 +3832,10 @@ async function ksScheduleOnce(){
   try{
     await sbRpc('set_kill_switch',{
       p_active:false, p_mode:'scheduled', p_scheduled_at:ts,
-      p_note:'Cierre programado para '+new Date(dtVal).toLocaleString('es'),
+      p_note:'Cierre programado para '+fmtDateTimeUS(dtVal),
       p_activated_by:getAdminUser()
     });
-    toast('✓ Cierre programado para '+new Date(dtVal).toLocaleString('es'),'ok');
+    toast('✓ Cierre programado para '+fmtDateTimeUS(dtVal),'ok');
     startKsScheduler();
     await refreshKsState();
   }catch(e){ toast('Error: '+e.message,'ko'); }
@@ -3423,7 +3857,8 @@ async function ksSetRecurring(){
 }
 
 async function ksCancelSchedule(){
-  if(!confirm('¿Cancelar la programación del cierre automático?')) return;
+  const ok = await wConfirm({title:'Cancelar programación', message:'Esto cancela la programación del cierre automático del sistema.', confirmLabel:'Sí, cancelar', danger:true});
+  if(!ok) return;
   try{
     await sbRpc('set_kill_switch',{p_active:false,p_mode:'manual',p_activated_by:getAdminUser()});
     clearInterval(ksSchedulerInt);
@@ -3491,7 +3926,13 @@ async function runForceCloseAll(){
   if(!openShiftsData.length){ toast('No hay jornadas abiertas ahora','ok'); return; }
   const names = openShiftsData.map(s=>cap(s.nombre||s.usuario)).join(', ');
   const note  = document.getElementById('ks-note-inp')?.value?.trim() || 'Cierre forzado por administración';
-  if(!confirm(`¿Cerrar forzosamente las jornadas de:\n${names}?\n\nSe creará un registro de Salida con la hora actual para cada uno.\nNota: "${note}"`)) return;
+  const ok = await wConfirm({
+    title: 'Forzar cierre de jornadas',
+    message: `Empleados:\n${names}\n\nSe creará un registro de Salida con la hora actual para cada uno.\nNota: "${note}"`,
+    confirmLabel: 'Cerrar jornadas',
+    danger: true
+  });
+  if(!ok) return;
   try{
     const r = await sbRpc('force_close_all_active_shifts',{ p_note:note, p_admin:getAdminUser() });
     toast(`✓ ${r.closed} jornada(s) cerradas a las ${r.hora}`,'ok');
@@ -3502,7 +3943,16 @@ async function runForceCloseAll(){
 }
 
 async function runForceCloseOne(usuario){
-  const note = prompt('Nota para '+usuario+' (o Enter para omitir):', 'Cierre individual por admin') || 'Cierre individual por admin';
+  const inp = await wPrompt({
+    title: `Cerrar jornada de ${usuario}`,
+    message: 'Se creará un registro de Salida con la hora actual. La nota queda en el log de auditoría.',
+    label: 'Nota (opcional)',
+    placeholder: 'Cierre individual por admin',
+    defaultValue: 'Cierre individual por admin',
+    confirmLabel: 'Cerrar jornada'
+  });
+  if(inp === null) return; // cancelado
+  const note = (inp && inp.trim()) || 'Cierre individual por admin';
   try{
     const r = await sbRpc('force_close_one_shift',{ p_usuario:usuario, p_note:note, p_admin:getAdminUser() });
     if(r.ok){ toast('✓ Jornada de '+usuario+' cerrada a las '+r.hora,'ok'); loadOpenShiftsPreview(); loadRecords(); }
@@ -3555,7 +4005,7 @@ async function renderSistemaAuditLog(){
         <td style="padding:8px 10px"><span style="color:${typeColors[r.accion]||'var(--text2)'};font-weight:700;font-size:11px">${s(typeLabels[r.accion]||r.accion)}</span></td>
         <td style="padding:8px 10px;color:var(--text2)">${s(r.usuario||'—')}</td>
         <td style="padding:8px 10px;color:var(--text4);font-size:11px">${s(r.detalles?.note||r.detalles?.nota||(r.detalles?.closed!==undefined?r.detalles.closed+' cerradas':'')||'—')}</td>
-        <td style="padding:8px 10px;color:var(--text4);font-family:var(--mono);font-size:11px">${new Date(r.created_at).toLocaleString('es')}</td>
+        <td style="padding:8px 10px;color:var(--text4);font-family:var(--mono);font-size:11px">${fmtDateTimeUS(r.created_at)}</td>
       </tr>`).join('')}</tbody></table>`;
   }catch(e){ el.innerHTML='<div style="color:var(--orange);font-size:12px;padding:12px 0">Error cargando log: '+s(e.message)+'</div>'; }
 }
@@ -3627,7 +4077,7 @@ function renderJornadasTable(){
   });
 
   const typeColors = { Entrada:'entrada', Salida:'salida', 'Inicio Lunch':'lunch', 'Fin Lunch':'lunch' };
-  const fmtTs = ts => ts ? new Date(ts).toLocaleString('es',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}) : '—';
+  const fmtTs = ts => ts ? fmtDateTimeUS(ts) : '—';
   const isForced = r => (r.coords||'').includes('admin_force_close') || (r.area_trabajo||'').toLowerCase().includes('cierre forzado');
   const isEdited = r => (r.device||'').includes('Admin Panel');
 
@@ -3731,7 +4181,7 @@ async function loadRecordAuditHistory(recordId){
       <span style="color:var(--text4);margin:0 6px">·</span>
       <span style="color:var(--text3)">${s(r.accion)}</span>
       <span style="color:var(--text4);margin:0 6px">·</span>
-      <span style="color:var(--text4);font-family:var(--mono)">${new Date(r.logged_at).toLocaleString('es')}</span>
+      <span style="color:var(--text4);font-family:var(--mono)">${fmtDateTimeUS(r.logged_at)}</span>
       ${r.detalles?.reason?`<br><span style="color:var(--text4);font-size:10px;padding-left:4px">"${escHtmlD(r.detalles.reason)}"</span>`:''}
     </div>`).join('');
   }catch(e){ auditWrap.style.display='none'; }
@@ -3830,14 +4280,20 @@ async function saveRecordEdit(){
 async function deleteRecord(){
   if(!currentEditRecord) return;
   const reason = document.getElementById('erm-reason')?.value?.trim() || 'Eliminación manual por admin';
-  if(!confirm(`¿Eliminar permanentemente el registro #${currentEditRecord.id} (${currentEditRecord.tipo} — ${currentEditRecord.fecha})?\n\nEsta acción queda en el log de auditoría.`)) return;
+  const ok = await wConfirm({
+    title: 'Eliminar registro permanentemente',
+    message: `Registro #${currentEditRecord.id}\nTipo: ${currentEditRecord.tipo}\nFecha: ${currentEditRecord.fecha}\n\nEsta acción queda en el log de auditoría y NO se puede deshacer.`,
+    confirmLabel: 'Eliminar',
+    danger: true
+  });
+  if(!ok) return;
   try{
-    const ok = await sbRpc('admin_delete_record',{
+    const rpcOk = await sbRpc('admin_delete_record',{
       p_record_id: currentEditRecord.id,
       p_reason:    reason,
       p_admin:     getAdminUser()
     });
-    if(ok===true||ok===1){
+    if(rpcOk===true||rpcOk===1){
       toast('✓ Registro eliminado','ok');
       closeModal('edit-record-modal');
       jeRecords = jeRecords.filter(r=>r.id!==currentEditRecord.id);
@@ -3982,7 +4438,13 @@ async function advResetLoginAttempts(){
 async function advWipeEmployeeRecords(){
   const usuario = document.getElementById('adv-emp-select')?.value;
   if(!usuario){ toast('Selecciona un empleado','ko'); return; }
-  if(!confirm(`¿Borrar TODOS los registros de "${usuario}"?\n\nEsta acción es IRREVERSIBLE.`)) return;
+  const ok = await wConfirm({
+    title: `Borrar registros de "${usuario}"`,
+    message: `Se eliminarán TODOS los registros de fichaje de este empleado.\n\nEsta acción es IRREVERSIBLE.`,
+    confirmLabel: 'Borrar todo',
+    danger: true
+  });
+  if(!ok) return;
   try{
     const res = await sbRpc('admin_wipe_employee_records',{
       p_usuario: usuario,
@@ -3997,8 +4459,20 @@ async function advDeleteEmployeeComplete(){
   const usuario = document.getElementById('adv-emp-select')?.value;
   if(!usuario){ toast('Selecciona un empleado','ko'); return; }
   const nombre = _advEmpList.find(e=>e.usuario===usuario)?.nombre||usuario;
-  if(!confirm(`⚠️ ELIMINAR COMPLETAMENTE a "${nombre}" (${usuario})?\n\nSe borrarán TODOS sus registros, pagos e historial.\n\nEsta acción es PERMANENTE e IRREVERSIBLE.`)) return;
-  if(!confirm(`Confirma por segunda vez: ¿eliminar "${usuario}" para siempre?`)) return;
+  const ok1 = await wConfirm({
+    title: `Eliminar completamente a "${nombre}"`,
+    message: `Usuario: ${usuario}\n\nSe borrarán TODOS sus registros, pagos e historial.\n\nEsta acción es PERMANENTE e IRREVERSIBLE.`,
+    confirmLabel: 'Continuar',
+    danger: true
+  });
+  if(!ok1) return;
+  const ok2 = await wConfirm({
+    title: 'Confirmación final',
+    message: `¿Eliminar a "${usuario}" para siempre?\n\nÚltima oportunidad de cancelar.`,
+    confirmLabel: 'Sí, eliminar definitivamente',
+    danger: true
+  });
+  if(!ok2) return;
   try{
     const res = await sbRpc('admin_delete_employee_complete',{
       p_usuario: usuario,
@@ -4072,7 +4546,13 @@ async function advBulkDeleteRecords(){
   const toFmt   = fmtDate(toVal);
 
   const summary = `${empVal||'TODOS'}, del ${fromFmt||'inicio'} al ${toFmt||'hoy'}`;
-  if(!confirm(`¿Borrar registros?\n${summary}\n\nEsta acción es IRREVERSIBLE.`)) return;
+  const ok = await wConfirm({
+    title: 'Borrado masivo de registros',
+    message: `Filtros aplicados:\n${summary}\n\nEsta acción es IRREVERSIBLE.`,
+    confirmLabel: 'Borrar registros',
+    danger: true
+  });
+  if(!ok) return;
 
   try{
     const res = await sbRpc('admin_bulk_delete_records',{
@@ -4119,7 +4599,7 @@ async function loadAdminLogs(){
           <td style="padding:6px 8px;font-weight:700;color:${color};font-size:10px;white-space:nowrap">${s(r.accion)}</td>
           <td style="padding:6px 8px;color:var(--text2)">${s(r.usuario||'—')}</td>
           <td style="padding:6px 8px;color:var(--text4);font-size:10px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s(details)}">${s(details)}</td>
-          <td style="padding:6px 8px;color:var(--text4);font-family:var(--mono);font-size:10px;white-space:nowrap">${new Date(r.created_at).toLocaleString('es')}</td>
+          <td style="padding:6px 8px;color:var(--text4);font-family:var(--mono);font-size:10px;white-space:nowrap">${fmtDateTimeUS(r.created_at)}</td>
         </tr>`;
       }).join('')}</tbody></table>`;
   }catch(e){ el.innerHTML=`<div style="color:var(--orange);font-size:12px">Error: ${s(e.message)}</div>`; }
@@ -4147,7 +4627,7 @@ async function loadLoginAttempts(){
             ${r.success?'✓ OK':'✗ FALLO'}${r.ip_hint==='blocked'?' (BLOQUEADO)':''}
           </span>
         </td>
-        <td style="padding:6px 8px;color:var(--text4);font-family:var(--mono);font-size:10px">${new Date(r.created_at).toLocaleString('es')}</td>
+        <td style="padding:6px 8px;color:var(--text4);font-family:var(--mono);font-size:10px">${fmtDateTimeUS(r.created_at)}</td>
       </tr>`).join('')}</tbody></table>`;
   }catch(e){ el.innerHTML=`<div style="color:var(--orange);font-size:12px">Error: ${s(e.message)}</div>`; }
 }
@@ -4183,7 +4663,7 @@ async function renderDashBitacora(){
       if(countEl)countEl.textContent='Sin registros';
       return;
     }
-    const nowStr=new Date().toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+    const nowStr=fmtTimeUS(new Date());
     if(countEl)countEl.textContent=`${data.length}${data.length>=500?'+':''} eventos · actualizado ${nowStr}`;
     // Agrupar por día
     let lastDay='';
@@ -4202,8 +4682,8 @@ async function renderDashBitacora(){
         const today=new Date();
         const yesterday=new Date(today);yesterday.setDate(today.getDate()-1);
         const isDayBreak=dayKey!==lastDay;lastDay=dayKey;
-        const dayLabel=dayKey===today.toDateString()?'Hoy':dayKey===yesterday.toDateString()?'Ayer':dt.toLocaleDateString('es-US',{weekday:'short',month:'short',day:'numeric'});
-        const timeStr=dt.toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+        const dayLabel=dayKey===today.toDateString()?(dashLang==='en'?'Today':'Hoy'):dayKey===yesterday.toDateString()?(dashLang==='en'?'Yesterday':'Ayer'):dt.toLocaleDateString(_i18nLocaleDash(),{weekday:'short',month:'short',day:'numeric'});
+        const timeStr=fmtTimeUS(dt);
         const detStr=r.details?Object.entries(r.details).filter(([,v])=>v!=null&&v!=='').map(([k,v])=>`<b>${k}:</b> ${String(v).slice(0,60)}`).join(' · '):'—';
         const rowSep=isDayBreak?`<tr><td colspan="5" style="padding:14px 10px 6px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border)">${dayLabel}</td></tr>`:'';
         const rowBg=i%2===0?'':'background:rgba(255,255,255,0.018)';
