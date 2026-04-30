@@ -1218,7 +1218,7 @@ tbody td{padding:11px 12px;font-size:12px}
             </select>
           </div>
           <div id="geocode-key-wrap">
-            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px"><span id="geocode-key-label">Mapbox API key</span> · <a href="#" id="geocode-key-link" target="_blank" style="color:#60a5fa">obtener gratis</a></label>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px"><span id="geocode-key-label">Mapbox API key</span></label>
             <input id="geocode-key-input" type="password" placeholder="pk.eyJ..." style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:monospace;font-size:11px"/>
           </div>
         </div>
@@ -1589,6 +1589,43 @@ const DASH_TRANSLATIONS = {
     navAuditoria:'Auditoría', navPresencia:'Presencia',
     navNomina:'Nómina', navPagos:'Comprobantes',
     navJornadas:'Editor Jornadas', navSistema:'Sistema',
+    navFieldWork:'Trabajo de Campo', navMissedOuts:'Posibles Olvidos',
+    navTrust:'Confianza', navFreqClients:'Clientes Frecuentes',
+    // Field tracking — Trabajo de Campo
+    fieldWorkTitle:'Trabajo de Campo',
+    fieldWorkSub:'Sesiones donde el empleado tocó "Salida al Exterior" · pendientes de aprobación',
+    approvalDaily:'Aprobación diaria', approvalWeekly:'Aprobación semanal',
+    statusPending:'Pendientes', statusApproved:'Aprobadas', statusRejected:'Rechazadas', statusAll:'Todas',
+    noFieldSessions:'No hay sesiones que mostrar',
+    selectSession:'Selecciona una sesión para ver el mapa',
+    totalHours:'Total horas',
+    legendGreen:'Proyecto/cliente', legendYellow:'Lugar razonable',
+    legendRed:'Parada larga (>1h)', legendStart:'Inicio', legendEnd:'Fin',
+    reject:'Rechazar', approveAdjust:'Aprobar con ajuste', approveSession:'Aprobar jornada',
+    refreshNames:'Refrescar nombres',
+    // Posibles Olvidos
+    missedOutsTitle:'Posibles Olvidos',
+    missedOutsSub:'El sistema detectó al empleado fuera del taller sin tocar "Salida al Exterior" · revisa y cierra la jornada',
+    noMissedOuts:'No hay olvidos detectados',
+    selectMissed:'Selecciona un caso para ver los movimientos detectados',
+    suggestedEnd:'Hora sugerida de fin',
+    closeWithTime:'Cerrar jornada con esta hora', dismiss:'Descartar',
+    // Confianza
+    trustTitle:'Confianza · Auto-aprobación',
+    trustSub:'Empleados marcados como "de confianza" verán sus sesiones de campo aprobadas automáticamente a las 24h, siempre que no haya paradas rojas.',
+    runAutoApprove:'Ejecutar auto-aprobación ahora',
+    trustHowItWorks:'Cómo funciona:',
+    trustHowItWorksDesc:'El sistema revisa cada hora las sesiones pendientes >24h. Si el empleado tiene "Confianza" activada y la sesión NO tiene paradas rojas, se aprueba automáticamente. Tú no tienes que hacer nada. Si quieres revisarla igual, puedes desactivar la confianza en cualquier momento.',
+    geocodeSettings:'Geocoding · Anti-saturación',
+    geocodeProvider:'Proveedor primario',
+    // Clientes Frecuentes
+    freqClientsTitle:'Clientes Frecuentes',
+    freqClientsSub:'Lugares conocidos para que el sistema los reconozca como verdes (proyecto/cliente) o amarillos (lugar razonable). Cuando un empleado pase por aquí, sus paradas se categorizan automáticamente.',
+    addClient:'Agregar lugar', noFreqClients:'Aún no hay lugares marcados',
+    addClientTitle:'Agregar lugar', placeName:'Nombre del lugar *',
+    address:'Dirección (opcional)', radiusM:'Radio (m)',
+    categoryColor:'Categoría', notesOpt:'Notas (opcional)',
+    cancel:'Cancelar', save:'Guardar',
     // Page headers
     pageObras:'Estado de Obras',
     pageAnalisis:'Análisis por Proyecto',
@@ -1683,6 +1720,43 @@ const DASH_TRANSLATIONS = {
     navAuditoria:'Audit', navPresencia:'Attendance',
     navNomina:'Payroll', navPagos:'Pay Stubs',
     navJornadas:'Shift Editor', navSistema:'System',
+    navFieldWork:'Field Work', navMissedOuts:'Possible Missed Outs',
+    navTrust:'Trust', navFreqClients:'Frequent Places',
+    // Field tracking — Field Work
+    fieldWorkTitle:'Field Work',
+    fieldWorkSub:'Sessions where the employee tapped "Outside Shift" · pending approval',
+    approvalDaily:'Daily approval', approvalWeekly:'Weekly approval',
+    statusPending:'Pending', statusApproved:'Approved', statusRejected:'Rejected', statusAll:'All',
+    noFieldSessions:'No sessions to display',
+    selectSession:'Select a session to view the map',
+    totalHours:'Total hours',
+    legendGreen:'Project/client', legendYellow:'Reasonable place',
+    legendRed:'Long stop (>1h)', legendStart:'Start', legendEnd:'End',
+    reject:'Reject', approveAdjust:'Approve with adjust', approveSession:'Approve session',
+    refreshNames:'Refresh names',
+    // Missed outs
+    missedOutsTitle:'Possible Missed Outs',
+    missedOutsSub:'The system detected the employee outside the shop without tapping "Outside Shift" · review and close the shift',
+    noMissedOuts:'No missed outs detected',
+    selectMissed:'Select a case to view detected movements',
+    suggestedEnd:'Suggested end time',
+    closeWithTime:'Close shift with this time', dismiss:'Dismiss',
+    // Trust
+    trustTitle:'Trust · Auto-approval',
+    trustSub:'Employees marked as trusted will have their field sessions auto-approved after 24h, as long as there are no red stops.',
+    runAutoApprove:'Run auto-approval now',
+    trustHowItWorks:'How it works:',
+    trustHowItWorksDesc:'The system checks every hour for sessions pending >24h. If the employee has "Trust" enabled and the session has NO red stops, it gets auto-approved. You don\'t have to do anything. If you want to review it anyway, you can disable trust at any time.',
+    geocodeSettings:'Geocoding · Anti-saturation',
+    geocodeProvider:'Primary provider',
+    // Frequent places
+    freqClientsTitle:'Frequent Places',
+    freqClientsSub:'Known places so the system recognizes them as green (project/client) or yellow (reasonable place). When an employee passes here, their stops are auto-categorized.',
+    addClient:'Add place', noFreqClients:'No places marked yet',
+    addClientTitle:'Add place', placeName:'Place name *',
+    address:'Address (optional)', radiusM:'Radius (m)',
+    categoryColor:'Category', notesOpt:'Notes (optional)',
+    cancel:'Cancel', save:'Save',
     // Page headers
     pageObras:'Project Status',
     pageAnalisis:'Project Analysis',
@@ -5912,29 +5986,30 @@ async function getGeocodeCacheStats(){
 // Cargar settings al inicio
 setTimeout(()=>{ loadGeocodeSettings(); }, 1500);
 // Pre-fetch periódico (cada 2 min) para que las sesiones nuevas tengan nombres listos
+setInterval(()=>{ if(typeof _prefetchPendingSessions==='function') _prefetchPendingSessions().catch(()=>{}); }, 2*60*1000);
 
-// ── UI Settings de Geocoding ──
+// ════════════════════════════════════════════════════════════════
+// UI Settings de Geocoding — handlers
+// ════════════════════════════════════════════════════════════════
 function _updateGeocodeKeyUI(){
   const sel = document.getElementById('geocode-provider');
   const wrap = document.getElementById('geocode-key-wrap');
   const lbl = document.getElementById('geocode-key-label');
   const input = document.getElementById('geocode-key-input');
-  const link = document.getElementById('geocode-key-link');
-  if(!sel || !wrap) return;
+  if(!sel || !wrap || !input || !lbl) return;
   const p = sel.value;
   const cfg = {
-    mapbox: {label:'Mapbox API key', link:'https://account.mapbox.com/access-tokens/', val:_geoSettings.mapbox_key},
-    locationiq: {label:'LocationIQ key', link:'https://locationiq.com/register', val:_geoSettings.locationiq_key},
-    geoapify: {label:'Geoapify key', link:'https://www.geoapify.com/get-started-with-maps-api', val:_geoSettings.geoapify_key},
-    opencage: {label:'OpenCage key', link:'https://opencagedata.com/users/sign_up', val:_geoSettings.opencage_key},
-    photon: {label:null, link:null, val:''},
-    nominatim: {label:null, link:null, val:''}
+    mapbox: {label:'Mapbox API key', val:_geoSettings.mapbox_key},
+    locationiq: {label:'LocationIQ key', val:_geoSettings.locationiq_key},
+    geoapify: {label:'Geoapify key', val:_geoSettings.geoapify_key},
+    opencage: {label:'OpenCage key', val:_geoSettings.opencage_key},
+    photon: {label:null, val:''},
+    nominatim: {label:null, val:''}
   };
   const c = cfg[p] || cfg.mapbox;
   if(c.label){
     wrap.style.display='block';
     lbl.textContent = c.label;
-    if(link) link.href = c.link;
     input.value = c.val || '';
   } else {
     wrap.style.display='none';
@@ -5942,25 +6017,45 @@ function _updateGeocodeKeyUI(){
 }
 
 async function saveGeocodeSettings(){
-  const provider = document.getElementById('geocode-provider').value;
-  const key = (document.getElementById('geocode-key-input').value||'').trim();
+  const sel = document.getElementById('geocode-provider');
+  const inp = document.getElementById('geocode-key-input');
+  if(!sel || !inp){ toast('UI no inicializada','ko'); return; }
+  const provider = sel.value;
+  const key = (inp.value||'').trim();
   if(!supabaseUrl || !supabaseKey){ toast('Sin conexión a Supabase','ko'); return; }
   const updates = [{key:'geocode_provider', value:provider}];
   if(provider === 'mapbox') updates.push({key:'mapbox_api_key', value:key});
   else if(provider === 'locationiq') updates.push({key:'locationiq_api_key', value:key});
   else if(provider === 'geoapify') updates.push({key:'geoapify_api_key', value:key});
   else if(provider === 'opencage') updates.push({key:'opencage_api_key', value:key});
-  try {
-    for(const u of updates){
-      await fetch(supabaseUrl+'/rest/v1/tracking_settings?key=eq.'+encodeURIComponent(u.key),{
+  let okCount = 0, errors = [];
+  for(const u of updates){
+    try {
+      const res = await fetch(supabaseUrl+'/rest/v1/tracking_settings?key=eq.'+encodeURIComponent(u.key),{
         method:'PATCH',
         headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},
         body: JSON.stringify({value: u.value, updated_at: new Date().toISOString()})
       });
-    }
+      if(res.ok || res.status===204){ okCount++; }
+      else {
+        // Si la fila no existe (PATCH sin afectar), intentar INSERT
+        const ins = await fetch(supabaseUrl+'/rest/v1/tracking_settings',{
+          method:'POST',
+          headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+          body: JSON.stringify({key:u.key, value:u.value, description:'auto-created'})
+        });
+        if(ins.ok || ins.status===201) okCount++;
+        else errors.push(u.key+': '+ins.status);
+      }
+    } catch(e){ errors.push(u.key+': '+e.message); }
+  }
+  if(okCount === updates.length){
     await loadGeocodeSettings();
-    toast('✓ Settings guardados','ok');
-  } catch(e){ toast('Error: '+e.message,'ko'); }
+    toast('✓ Settings guardados ('+okCount+' campos)','ok');
+  } else {
+    toast('Guardado parcial: '+okCount+'/'+updates.length+(errors.length?' · '+errors.join(', '):''), errors.length?'ko':'ok');
+    console.warn('saveGeocodeSettings errors:', errors);
+  }
 }
 
 async function refreshGeocodeStats(){
@@ -5968,22 +6063,35 @@ async function refreshGeocodeStats(){
   if(!el) return;
   el.style.display='block';
   el.innerHTML='Cargando...';
-  const stats = await getGeocodeCacheStats();
-  if(!stats){ el.innerHTML='<span style="color:#ef4444">No se pudo cargar</span>'; return; }
-  const total = stats.total_entries||0;
-  const hits = stats.total_hits||0;
-  const saved = stats.requests_saved||0;
-  const pct = total ? Math.round((saved / Math.max(hits,1))*100) : 0;
-  let providersHtml = '';
-  if(stats.by_provider){
-    providersHtml = Object.entries(stats.by_provider).map(([p,c])=>'<span style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:10px">'+p+': '+c+'</span>').join(' ');
-  }
-  el.innerHTML = '<div style="font-weight:600;color:#10b981;margin-bottom:6px">📈 Estadísticas del caché compartido</div>'
-    +'<div>• Lugares cacheados: <b>'+total+'</b></div>'
-    +'<div>• Total accesos al caché: <b>'+hits+'</b></div>'
-    +'<div>• Requests ahorradas: <b style="color:#10b981">'+saved+'</b> ('+pct+'%)</div>'
-    +'<div>• Esta sesión: <b>'+(_geoStats.hits_cache_local+_geoStats.hits_cache_supabase)+'</b> hits cache · <b>'+_geoStats.requests_real+'</b> requests reales</div>'
-    +(providersHtml?'<div style="margin-top:6px">Proveedores: '+providersHtml+'</div>':'');
+  if(!supabaseUrl || !supabaseKey){ el.innerHTML='<span style="color:#ef4444">Sin conexión a Supabase</span>'; return; }
+  try {
+    const res = await fetch(supabaseUrl+'/rest/v1/rpc/get_geocode_stats',{
+      method:'POST',
+      headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json'},
+      body: '{}'
+    });
+    if(res.status === 404){
+      el.innerHTML='<span style="color:#f59e0b">⚠️ Falta aplicar el SQL <code>supabase_geocode_cache.sql</code> en Supabase. Una vez aplicado, vuelve a hacer click en "Ver estadísticas".</span>';
+      return;
+    }
+    if(!res.ok){ el.innerHTML='<span style="color:#ef4444">Error '+res.status+'</span>'; return; }
+    const stats = await res.json();
+    if(!stats){ el.innerHTML='<span style="color:#f59e0b">Sin datos todavía. Las estadísticas aparecerán cuando se geocodifique al menos 1 parada.</span>'; return; }
+    const total = stats.total_entries||0;
+    const hits = stats.total_hits||0;
+    const saved = stats.requests_saved||0;
+    const pct = hits ? Math.round((saved / Math.max(hits,1))*100) : 0;
+    let providersHtml = '';
+    if(stats.by_provider){
+      providersHtml = Object.entries(stats.by_provider).map(([p,c])=>'<span style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:10px">'+p+': '+c+'</span>').join(' ');
+    }
+    el.innerHTML = '<div style="font-weight:600;color:#10b981;margin-bottom:6px">📈 Estadísticas del caché compartido</div>'
+      +'<div>• Lugares cacheados: <b>'+total+'</b></div>'
+      +'<div>• Total accesos al caché: <b>'+hits+'</b></div>'
+      +'<div>• Requests ahorradas: <b style="color:#10b981">'+saved+'</b> ('+pct+'%)</div>'
+      +'<div>• Esta sesión: <b>'+(_geoStats.hits_cache_local+_geoStats.hits_cache_supabase)+'</b> hits cache · <b>'+_geoStats.requests_real+'</b> requests reales</div>'
+      +(providersHtml?'<div style="margin-top:6px">Proveedores: '+providersHtml+'</div>':'');
+  } catch(e){ el.innerHTML='<span style="color:#ef4444">Error: '+e.message+'</span>'; }
 }
 
 // Auto-init UI cuando el admin entra a Confianza
@@ -5991,7 +6099,7 @@ async function refreshGeocodeStats(){
   const _origRender = window.renderConfianza;
   if(typeof _origRender === 'function'){
     window.renderConfianza = async function(){
-      await _origRender.apply(this, arguments);
+      try { await _origRender.apply(this, arguments); } catch(e){ console.warn('renderConfianza:',e); }
       // Setear UI de geocoding
       const sel = document.getElementById('geocode-provider');
       if(sel){
@@ -6002,7 +6110,6 @@ async function refreshGeocodeStats(){
     };
   }
 })();
-
 
 // ── Cambiar rango de fechas (paginación temporal) ──
 async function changeFieldSessionsRange(days){
@@ -6018,13 +6125,226 @@ async function changeFieldSessionsRange(days){
   const _origNav = window.nav;
   if(typeof _origNav === 'function'){
     window.nav = function(p){
-      // Destruir mapas activos al cambiar de página para liberar memoria
       try {
-        if(window._cdMap && p!=='campo'){ _cdMap.remove(); _cdMap=null; }
-        if(window._odMap && p!=='olvidos'){ _odMap.remove(); _odMap=null; }
-        if(window._cfMap && p!=='clientes-frec'){ _cfMap.remove(); _cfMap=null; }
+        if(window._cdMap && p!=='campo'){ window._cdMap.remove(); window._cdMap=null; }
+        if(window._odMap && p!=='olvidos'){ window._odMap.remove(); window._odMap=null; }
+        if(window._cfMap && p!=='clientes-frec'){ window._cfMap.remove(); window._cfMap=null; }
       } catch(_){}
       _origNav.apply(this, arguments);
+    };
+  }
+})();
+
+
+// ── Auto-approve now (reaplica función SQL) ──
+async function runAutoApproveNow(){
+  if(!supabaseUrl || !supabaseKey){ toast('Sin conexión a Supabase','ko'); return; }
+  if(!confirm('Ejecutar auto-aprobación ahora?\n\nMarca AUTO_APPROVED las sesiones >24h de empleados de confianza sin paradas rojas.')) return;
+  try {
+    const res = await fetch(supabaseUrl+'/rest/v1/rpc/auto_approve_field_sessions',{
+      method:'POST',
+      headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json'},
+      body: '{}'
+    });
+    if(res.status === 404){
+      toast('⚠️ Falta aplicar el SQL supabase_field_tracking_v2.sql','ko');
+      return;
+    }
+    if(!res.ok){ toast('Error '+res.status,'ko'); return; }
+    const count = await res.json();
+    toast('✓ '+(count||0)+' sesiones auto-aprobadas','ok');
+    if(typeof loadFieldSessions === 'function') await loadFieldSessions();
+    if(typeof renderConfianza === 'function') renderConfianza();
+  } catch(e){ toast('Error: '+e.message,'ko'); }
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// CONFIANZA + CLIENTES FRECUENTES — funciones reconstruidas
+// ════════════════════════════════════════════════════════════════
+async function loadConfianzaStats(){
+  if(!supabaseUrl||!supabaseKey) return [];
+  try {
+    const res = await fetch(supabaseUrl+'/rest/v1/empleados_confianza_stats?order=usuario',{headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey}});
+    if(res.ok) return await res.json();
+  } catch(_){}
+  return [];
+}
+
+async function renderConfianza(){
+  const list = document.getElementById('confianza-list');
+  if(!list) return;
+  const stats = await loadConfianzaStats();
+  if(!stats.length){
+    list.innerHTML = '<div style="color:var(--text4);padding:30px;text-align:center">No hay empleados o falta aplicar el SQL v2 en Supabase.</div>';
+    return;
+  }
+  list.innerHTML = stats.map(e=>{
+    const cleanRecord = (e.sessions_with_red_stops||0) === 0 && (e.total_field_sessions||0) >= 3;
+    const trustOn = e.auto_approve_field === true;
+    return '<div style="background:var(--bg2);border:1px solid '+(trustOn?'rgba(16,185,129,0.4)':'var(--border)')+';border-radius:12px;padding:14px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="flex:1"><div style="display:flex;align-items:center;gap:10px">'+(trustOn?'<svg width="18" height="18" viewBox="0 0 24 24" fill="#10b981"><path d="M9 12l2 2 4-4M21 12c0 5-4 9-9 9s-9-4-9-9 4-9 9-9 9 4 9 9z"/></svg>':'')+'<h3 style="margin:0;font-size:16px">'+escapeHtml(e.usuario)+'</h3></div><div style="display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--text4);flex-wrap:wrap"><span>📊 Total: <b>'+(e.total_field_sessions||0)+'</b></span><span style="color:#10b981">✓ <b>'+(e.approved_count||0)+'</b></span><span style="color:#ef4444">✗ <b>'+(e.rejected_count||0)+'</b></span><span style="color:'+(e.sessions_with_red_stops>0?"#ef4444":"#10b981")+'">🔴 <b>'+(e.sessions_with_red_stops||0)+'</b></span></div>'+(cleanRecord?'<div style="margin-top:6px;font-size:11px;color:#10b981">✓ Historial limpio</div>':'')+'</div><label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:'+(trustOn?"rgba(16,185,129,0.15)":"var(--bg3)")+';padding:8px 12px;border-radius:10px;border:1px solid '+(trustOn?"rgba(16,185,129,0.4)":"var(--border)")+'"><input type="checkbox" '+(trustOn?'checked':'')+' onchange="toggleEmployeeTrust(\''+escapeJsStr(e.usuario)+'\', this.checked)"/><span style="font-size:12px;font-weight:600;color:'+(trustOn?"#10b981":"var(--text2)")+'">'+(trustOn?'Confianza ACTIVA':'Activar')+'</span></label></div></div>';
+  }).join('');
+}
+
+async function toggleEmployeeTrust(usuario, value){
+  if(!supabaseUrl||!supabaseKey) return;
+  try {
+    await fetch(supabaseUrl+'/rest/v1/employees?usuario=eq.'+encodeURIComponent(usuario),{method:'PATCH',headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({auto_approve_field:value})});
+    toast(value?'✓ Confianza activada':'Confianza desactivada','ok');
+    renderConfianza();
+  } catch(e){ toast('Error: '+e.message,'ko'); }
+}
+
+// ── Clientes Frecuentes ──
+window._clientesFrecuentes = window._clientesFrecuentes || [];
+let _cfMap = null;
+
+async function loadClientesFrecuentes(){
+  if(!supabaseUrl||!supabaseKey) return;
+  try {
+    const res = await fetch(supabaseUrl+'/rest/v1/clientes_frecuentes?select=*&order=created_at.desc',{headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey}});
+    if(res.ok) window._clientesFrecuentes = await res.json();
+  } catch(_){}
+}
+
+function renderClientesFrecuentes(){
+  const list = document.getElementById('cf-list');
+  const empty = document.getElementById('cf-empty');
+  if(!list) return;
+  const arr = window._clientesFrecuentes || [];
+  if(!arr.length){ list.innerHTML=''; if(empty)empty.style.display='block'; renderCfMap([]); return; }
+  if(empty)empty.style.display='none';
+  list.innerHTML = arr.map(c=>{
+    const dot = c.color==='green'?'#10b981':'#f59e0b';
+    return '<div style="padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg3)"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div style="width:10px;height:10px;border-radius:50%;background:'+dot+'"></div><div style="flex:1;font-weight:600;font-size:13px">'+escapeHtml(c.nombre)+'</div></div>'+(c.direccion?'<div style="font-size:11px;color:var(--text4);margin-left:18px">'+escapeHtml(c.direccion)+'</div>':'')+'<div style="font-size:10px;color:var(--text4);margin-left:18px;margin-top:2px">'+c.lat.toFixed(4)+', '+c.lng.toFixed(4)+' · '+c.radio_m+'m</div><div style="display:flex;gap:6px;margin-top:8px"><button onclick="editClienteFrecuente('+c.id+')" style="flex:1;padding:5px 8px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);color:#a5b4fc;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit">Editar</button><button onclick="deleteClienteFrecuente('+c.id+',\''+escapeJsStr(c.nombre)+'\')" style="padding:5px 10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit">Eliminar</button></div></div>';
+  }).join('');
+  renderCfMap(arr);
+}
+
+function renderCfMap(arr){
+  const el = document.getElementById('cf-map');
+  if(!el) return;
+  if(_cfMap){ try{ _cfMap.remove(); }catch(_){} }
+  let center = [33.8851, -118.2876];
+  if(arr.length){ center = [arr[0].lat, arr[0].lng]; }
+  _cfMap = L.map('cf-map',{zoomControl:true}).setView(center, 12);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(_cfMap);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:19,opacity:0.85}).addTo(_cfMap);
+  arr.forEach(c=>{
+    const col = c.color==='green'?'#10b981':'#f59e0b';
+    L.circle([c.lat,c.lng],{radius:c.radio_m||150,color:col,fillColor:col,fillOpacity:0.2,weight:2}).addTo(_cfMap);
+    L.circleMarker([c.lat,c.lng],{radius:8,fillColor:col,color:'#fff',weight:2,fillOpacity:1}).bindPopup('<b>'+escapeHtml(c.nombre)+'</b>').addTo(_cfMap);
+  });
+}
+
+function openAddClienteModal(){
+  const m = document.getElementById('modal-cf-add');
+  if(!m) return;
+  document.getElementById('cf-edit-id').value = '';
+  document.getElementById('cf-modal-title').textContent = 'Agregar lugar';
+  document.getElementById('cf-nombre').value = '';
+  document.getElementById('cf-direccion').value = '';
+  document.getElementById('cf-lat').value = '';
+  document.getElementById('cf-lng').value = '';
+  document.getElementById('cf-radio').value = '150';
+  document.getElementById('cf-color').value = 'green';
+  document.getElementById('cf-notas').value = '';
+  m.style.display = 'flex';
+}
+
+function closeCfModal(){ const m=document.getElementById('modal-cf-add'); if(m)m.style.display='none'; }
+
+function editClienteFrecuente(id){
+  const c = (window._clientesFrecuentes||[]).find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('cf-edit-id').value = id;
+  document.getElementById('cf-modal-title').textContent = 'Editar lugar';
+  document.getElementById('cf-nombre').value = c.nombre;
+  document.getElementById('cf-direccion').value = c.direccion||'';
+  document.getElementById('cf-lat').value = c.lat;
+  document.getElementById('cf-lng').value = c.lng;
+  document.getElementById('cf-radio').value = c.radio_m;
+  document.getElementById('cf-color').value = c.color||'green';
+  document.getElementById('cf-notas').value = c.notas||'';
+  document.getElementById('modal-cf-add').style.display = 'flex';
+}
+
+async function saveClienteFrecuente(){
+  if(!supabaseUrl||!supabaseKey){ toast('Sin conexión','ko'); return; }
+  const id = document.getElementById('cf-edit-id').value;
+  const nombre = document.getElementById('cf-nombre').value.trim();
+  const direccion = document.getElementById('cf-direccion').value.trim();
+  const lat = parseFloat(document.getElementById('cf-lat').value);
+  const lng = parseFloat(document.getElementById('cf-lng').value);
+  const radio = parseInt(document.getElementById('cf-radio').value)||150;
+  const color = document.getElementById('cf-color').value;
+  const notas = document.getElementById('cf-notas').value.trim();
+  if(!nombre || isNaN(lat) || isNaN(lng)){ toast('Nombre, lat y lng son requeridos','ko'); return; }
+  const body = {nombre,direccion:direccion||null,lat,lng,radio_m:radio,color,notas:notas||null,active:true,created_by:window.adminUser||'admin',updated_at:new Date().toISOString()};
+  try {
+    let res;
+    if(id){
+      res = await fetch(supabaseUrl+'/rest/v1/clientes_frecuentes?id=eq.'+id,{method:'PATCH',headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)});
+    } else {
+      res = await fetch(supabaseUrl+'/rest/v1/clientes_frecuentes',{method:'POST',headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(body)});
+    }
+    if(res.status===404){ toast('⚠️ Falta aplicar SQL v2','ko'); return; }
+    if(!res.ok && res.status!==201 && res.status!==204){ toast('Error '+res.status,'ko'); return; }
+    toast(id?'Actualizado':'Agregado','ok');
+    closeCfModal();
+    await loadClientesFrecuentes();
+    renderClientesFrecuentes();
+  } catch(e){ toast('Error: '+e.message,'ko'); }
+}
+
+async function deleteClienteFrecuente(id, nombre){
+  if(!confirm('Eliminar el lugar "'+nombre+'"?')) return;
+  try {
+    await fetch(supabaseUrl+'/rest/v1/clientes_frecuentes?id=eq.'+id,{method:'DELETE',headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey}});
+    toast('Lugar eliminado','ok');
+    await loadClientesFrecuentes();
+    renderClientesFrecuentes();
+  } catch(e){ toast('Error: '+e.message,'ko'); }
+}
+
+function addStopAsCliente(lat, lng, suggestedName){
+  openAddClienteModal();
+  document.getElementById('cf-nombre').value = suggestedName || 'Nueva parada';
+  document.getElementById('cf-lat').value = lat.toFixed(6);
+  document.getElementById('cf-lng').value = lng.toFixed(6);
+}
+
+// helpers
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeJsStr(s){ return String(s||'').replace(/['\\]/g, '\\$&'); }
+
+// ── Banner notification dismiss ──
+function dismissAdminBanner(){
+  const b = document.getElementById('admin-notify-banner');
+  if(b) b.style.display='none';
+}
+
+// Re-extender nav() para Confianza y Clientes Frecuentes
+(function(){
+  const _origNav = window.nav;
+  if(typeof _origNav === 'function'){
+    window.nav = function(p){
+      _origNav.apply(this, arguments);
+      if(p==='confianza'){
+        renderConfianza();
+        // Setear UI de geocoding
+        setTimeout(()=>{
+          const sel = document.getElementById('geocode-provider');
+          if(sel){
+            sel.value = _geoSettings.provider || 'mapbox';
+            sel.onchange = _updateGeocodeKeyUI;
+            _updateGeocodeKeyUI();
+          }
+        }, 100);
+      }
+      if(p==='clientes-frec'){
+        loadClientesFrecuentes().then(renderClientesFrecuentes);
+      }
     };
   }
 })();
