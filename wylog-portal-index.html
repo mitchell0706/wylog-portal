@@ -343,7 +343,7 @@ tbody td{padding:11px 12px;font-size:12px}
     </div>
     <div class="lfield"><label data-i18n-d="username">Usuario</label><input type="text" id="l-u" value="admin" autocomplete="username"/></div>
     <div class="lfield"><label data-i18n-d="password">Contraseña</label><input type="password" id="l-p" placeholder="••••••••" autocomplete="current-password"/></div>
-    <button class="lbtn" onclick="doLogin()" data-i18n-d="accessPanel">Acceder al Panel</button>
+    <button class="lbtn" onclick="doLogin()" data-i18n-d="accessPanel"><span data-i18n-d="accessPanelBtn">Acceder al Panel</span></button>
     <div class="lerr" id="l-err"></div>
   </div>
 </div>
@@ -391,6 +391,22 @@ tbody td{padding:11px 12px;font-size:12px}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         <span data-i18n-d="navJornadas">Editor Jornadas</span>
       </div>
+      <div class="sbi" onclick="nav('campo')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h2l3-8 4 16 3-10 2 4h4"/></svg>
+        <span data-i18n-d="navFieldWork">Trabajo de Campo</span><span class="sbi-badge" id="badge-campo" style="display:none;background:#6366f1">0</span>
+      </div>
+      <div class="sbi" onclick="nav('olvidos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span data-i18n-d="navMissedOuts">Posibles Olvidos</span><span class="sbi-badge" id="badge-olvidos" style="display:none;background:#f59e0b">0</span>
+      </div>
+      <div class="sbi" onclick="nav('confianza')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 6v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V6l-8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span data-i18n-d="navTrust">Confianza</span>
+      </div>
+      <div class="sbi" onclick="nav('clientes-frec')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span data-i18n-d="navFreqClients">Clientes Frecuentes</span>
+      </div>
       <div class="sbi" id="sbi-sistema" onclick="nav('sistema')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M17.66 17.66l-1.41-1.41M6.34 6.34L4.93 4.93"/></svg>
         <span data-i18n-d="navSistema">Sistema</span><span class="sbi-badge" id="badge-sistema" style="display:none;background:#ef4444">!</span>
@@ -398,7 +414,7 @@ tbody td{padding:11px 12px;font-size:12px}
       <div class="sbi-sep" style="height:1px;background:var(--border);margin:8px 10px"></div>
       <div class="sbi" onclick="nav('bitacora')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><circle cx="10.5" cy="14.5" r="2.5"/><line x1="12.5" y1="16.5" x2="15" y2="19"/></svg>
-        <span>Bitácora</span>
+        <span data-i18n-d="auditLogShort">Bitácora</span>
       </div>
     </div>
     <!-- Kill Switch Status Pill (always visible) -->
@@ -415,7 +431,7 @@ tbody td{padding:11px 12px;font-size:12px}
     <div class="sb-sync" id="sync-lbl"></div>
     <div class="sb-foot">
       <div class="sb-av" id="sb-av">A</div>
-      <div style="flex:1"><div class="sb-uname" id="sb-nm">Admin</div><div class="sb-urole" id="sb-role">Administrador</div></div>
+      <div style="flex:1"><div class="sb-uname" id="sb-nm" data-i18n-d="adminLbl">Admin</div><div class="sb-urole" id="sb-role" data-i18n-d="administrator">Administrador</div></div>
       <button class="dash-lang-btn" onclick="toggleLangDash()" id="dash-lang-btn" title="Switch language / Cambiar idioma">EN</button>
       <button class="sb-out" onclick="doLogout()" id="sb-out-btn" title="Salir">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -589,7 +605,7 @@ tbody td{padding:11px 12px;font-size:12px}
           </button>
         </div>
         <div id="rates-table" style="overflow-x:auto">
-          <div class="empty" style="padding:30px 0"><p>Cargando empleados...</p></div>
+          <div class="empty" style="padding:30px 0"><p data-i18n-d="loadingEmps">Cargando empleados...</p></div>
         </div>
       </div>
 
@@ -625,7 +641,7 @@ tbody td{padding:11px 12px;font-size:12px}
             <div style="text-align:center"><div style="color:var(--text4);font-size:10px">Horas brutas</div><div style="color:var(--text1);font-size:16px;font-weight:700;font-family:var(--mono)" id="ep-hbruto">—</div></div>
             <div style="text-align:center"><div style="color:var(--text4);font-size:10px">Lunch desc.</div><div style="color:var(--orange);font-size:16px;font-weight:700;font-family:var(--mono)" id="ep-hlunch">—</div></div>
             <div style="text-align:center"><div style="color:var(--text4);font-size:10px">Hrs pagables</div><div style="color:var(--text1);font-size:16px;font-weight:700;font-family:var(--mono)" id="ep-hneto">—</div></div>
-            <div style="text-align:center"><div style="color:var(--text4);font-size:10px">Total a pagar</div><div style="color:var(--green);font-size:22px;font-weight:800;font-family:var(--mono)" id="ep-total">—</div></div>
+            <div style="text-align:center"><div style="color:var(--text4);font-size:10px" data-i18n-d="totalToPayLbl">Total a pagar</div><div style="color:var(--green);font-size:22px;font-weight:800;font-family:var(--mono)" id="ep-total">—</div></div>
           </div>
           <div style="display:flex;gap:10px;align-items:center">
             <div style="flex:1">
@@ -657,7 +673,7 @@ tbody td{padding:11px 12px;font-size:12px}
           </div>
         </div>
         <div id="payments-table-wrap" style="overflow-x:auto;padding:0 20px 20px">
-          <div class="empty" style="padding:30px 0"><p>Cargando comprobantes...</p></div>
+          <div class="empty" style="padding:30px 0"><p data-i18n-d="loadingReceipts">Cargando comprobantes...</p></div>
         </div>
       </div>
     </div>
@@ -683,7 +699,7 @@ tbody td{padding:11px 12px;font-size:12px}
               <div id="ks-toggle-wrap" onclick="ksToggle()" style="cursor:pointer;width:72px;height:72px;border-radius:50%;background:rgba(16,185,129,0.1);border:3px solid var(--emerald);display:flex;align-items:center;justify-content:center;transition:all .3s;margin:0 auto">
                 <svg id="ks-icon" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2.5" width="32" height="32"><path d="M18.364 5.636a9 9 0 010 12.728M15.536 8.464a5 5 0 010 7.072M12 12h.01"/></svg>
               </div>
-              <div id="ks-state-lbl" style="margin-top:10px;font-size:13px;font-weight:700;color:var(--green)">ABIERTO</div>
+              <div id="ks-state-lbl" style="margin-top:10px;font-size:13px;font-weight:700;color:var(--green)" data-i18n-d="openLbl">ABIERTO</div>
             </div>
             <!-- Info -->
             <div style="flex:1;min-width:200px">
@@ -701,7 +717,7 @@ tbody td{padding:11px 12px;font-size:12px}
               <input type="text" class="fi" id="ks-note-inp" placeholder="ej. Fin de día. Hasta mañana." maxlength="100" style="width:100%"/>
               <button id="ks-main-btn" class="btn btn-p" onclick="ksToggle()" style="width:100%;justify-content:center">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18.364 5.636a9 9 0 010 12.728M15.536 8.464a5 5 0 010 7.072M12 12h.01"/></svg>
-                <span id="ks-btn-lbl">Cerrar Sistema</span>
+                <span id="ks-btn-lbl" data-i18n-d="closeSystem">Cerrar Sistema</span>
               </button>
             </div>
           </div>
@@ -756,7 +772,7 @@ tbody td{padding:11px 12px;font-size:12px}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Programar cierre
               </button>
-              <button class="btn btn-sm" style="color:var(--text3)" onclick="ksCancelSchedule()">Cancelar programación</button>
+              <button class="btn btn-sm" style="color:var(--text3)" onclick="ksCancelSchedule()" data-i18n-d="cancelSchedule">Cancelar programación</button>
             </div>
             <div id="ks-sched-status" style="margin-top:10px;font-size:11px;color:var(--text4)"></div>
           </div>
@@ -783,7 +799,7 @@ tbody td{padding:11px 12px;font-size:12px}
       <div class="card" style="padding:0">
         <div class="card-hd" style="padding:16px 20px 12px"><div><h3>Log de Actividad del Sistema</h3><p>Últimas activaciones del kill-switch y cierres forzados</p></div></div>
         <div id="sistema-audit-list" style="padding:0 20px 20px">
-          <div class="empty" style="padding:20px 0"><p>Cargando...</p></div>
+          <div class="empty" style="padding:20px 0"><p data-i18n-d="loadingDots">Cargando...</p></div>
         </div>
       </div>
 
@@ -817,14 +833,14 @@ tbody td{padding:11px 12px;font-size:12px}
             <select id="adv-emp-select" class="fi" style="flex:1;min-width:160px" onchange="loadAdvEmpData()">
               <option value="">Selecciona un empleado...</option>
             </select>
-            <button class="btn btn-sm btn-g" onclick="refreshAdvEmpList()">Cargar lista</button>
+            <button class="btn btn-sm btn-g" onclick="refreshAdvEmpList()" data-i18n-d="loadList">Cargar lista</button>
           </div>
 
           <!-- Panel de edición -->
           <div id="adv-emp-panel" style="display:none">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
               <div>
-                <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Nombre</div>
+                <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px" data-i18n-d="nameLbl">Nombre</div>
                 <input type="text" class="fi" id="adv-emp-nombre" placeholder="Nombre del empleado"/>
               </div>
               <div>
@@ -895,8 +911,8 @@ tbody td{padding:11px 12px;font-size:12px}
               <div>
                 <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Tipo</div>
                 <select id="ins-rec-tipo" class="fi">
-                  <option value="Entrada">Entrada</option>
-                  <option value="Salida">Salida</option>
+                  <option value="Entrada" data-i18n-d="typeEntrada">Entrada</option>
+                  <option value="Salida" data-i18n-d="typeSalida">Salida</option>
                   <option value="Inicio Almuerzo">Inicio Almuerzo</option>
                   <option value="Fin Almuerzo">Fin Almuerzo</option>
                 </select>
@@ -966,7 +982,7 @@ tbody td{padding:11px 12px;font-size:12px}
             <select id="log-filter-type" class="fi" style="flex:1;min-width:160px">
               <option value="">Todos los eventos</option>
               <option value="login">Inicios de sesión</option>
-              <option value="admin">Acciones admin</option>
+              <option value="admin" data-i18n-d="adminActions">Acciones admin</option>
               <option value="kill_switch">Kill-switch</option>
               <option value="edit">Ediciones</option>
               <option value="delete">Eliminaciones</option>
@@ -1031,11 +1047,279 @@ tbody td{padding:11px 12px;font-size:12px}
       </div>
     </div>
 
+    <!-- ══ TRABAJO DE CAMPO (sesiones de exterior aprobables) ══ -->
+    <div class="page" id="page-campo">
+      <div class="ph">
+        <div class="ph-t">
+          <h2 data-i18n-d="fieldWorkTitle">Trabajo de Campo</h2>
+          <p data-i18n-d="fieldWorkSub">Sesiones donde el empleado tocó "Salida al Exterior" · pendientes de aprobación</p>
+        </div>
+        <div class="ph-a">
+          <select id="campo-mode" onchange="renderCampoSessions()" style="padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit">
+            <option value="daily" data-i18n-d="approvalDaily">Aprobación diaria</option>
+            <option value="weekly" data-i18n-d="approvalWeekly">Aprobación semanal</option>
+          </select>
+          <select id="campo-status" onchange="renderCampoSessions()" style="padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;margin-left:8px">
+            <option value="PENDING" data-i18n-d="statusPending">Pendientes</option>
+            <option value="APPROVED" data-i18n-d="statusApproved">Aprobadas</option>
+            <option value="REJECTED" data-i18n-d="statusRejected">Rechazadas</option>
+            <option value="ALL" data-i18n-d="statusAll">Todas</option>
+          </select>
+          <select id="campo-days" onchange="changeFieldSessionsRange(this.value)" style="padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;margin-left:8px">
+            <option value="7">Últimos 7 días</option>
+            <option value="30" selected>Últimos 30 días</option>
+            <option value="90">Últimos 90 días</option>
+            <option value="365">Último año</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;margin-top:12px">
+        <!-- LISTA -->
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:calc(100vh - 220px);overflow-y:auto">
+          <div id="campo-list" style="display:flex;flex-direction:column;gap:8px"></div>
+          <div id="campo-empty" style="text-align:center;color:var(--text4);padding:30px 10px;display:none">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3"><path d="M3 13h2l3-8 4 16 3-10 2 4h4"/></svg>
+            <p style="margin-top:8px;font-size:13px" data-i18n-d="noFieldSessions">No hay sesiones que mostrar</p>
+          </div>
+        </div>
+        <!-- DETALLE + MAPA -->
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+          <div id="campo-detail-empty" style="text-align:center;color:var(--text4);padding:60px 20px">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.25"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+            <p style="margin-top:10px;font-size:14px" data-i18n-d="selectSession">Selecciona una sesión para ver el mapa</p>
+          </div>
+          <div id="campo-detail" style="display:none;flex-direction:column;gap:10px;flex:1">
+            <!-- Header de detalle -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+              <div>
+                <h3 id="cd-emp" style="margin:0;font-size:18px"></h3>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--text4)" id="cd-meta"></p>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--text4)" data-i18n-d="totalHours">Total horas</div>
+                <div id="cd-total" style="font-size:22px;font-weight:700;color:#10b981"></div>
+              </div>
+            </div>
+            <!-- Mapa -->
+            <div id="cd-map" style="height:340px;width:100%;border-radius:10px;overflow:hidden;background:var(--bg3)"></div>
+            <!-- Leyenda colores -->
+            <div style="display:flex;gap:14px;font-size:11px;color:var(--text4);padding:6px 8px;background:var(--bg3);border-radius:8px;flex-wrap:wrap">
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;margin-right:4px;vertical-align:middle"></span> <span data-i18n-d="legendGreen">Proyecto/cliente</span></span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;margin-right:4px;vertical-align:middle"></span> <span data-i18n-d="legendYellow">Lugar razonable</span></span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;margin-right:4px;vertical-align:middle"></span> <span data-i18n-d="legendRed">Parada larga (&gt;1h)</span></span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6366f1;margin-right:4px;vertical-align:middle"></span> <span data-i18n-d="legendStart">Inicio</span></span>
+              <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;margin-right:4px;vertical-align:middle;border:2px solid #fff"></span> <span data-i18n-d="legendEnd">Fin</span></span>
+            </div>
+            <!-- Listado de paradas -->
+            <div id="cd-stops" style="max-height:160px;overflow-y:auto;font-size:12px"></div>
+            <!-- Acciones -->
+            <div id="cd-actions" style="display:flex;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--border)">
+              <button onclick="refreshSessionNames(_campoSelected)" style="padding:10px 12px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;border-radius:8px;cursor:pointer;font-family:inherit" title="Volver a buscar los nombres">🔄 Refrescar nombres</button>
+              <button onclick="rejectCampoSession()" style="padding:10px 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">
+                ✗ <span data-i18n-d="reject">Rechazar</span>
+              </button>
+              <button onclick="approveCampoSessionAdjust()" style="padding:10px 16px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#f59e0b;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">
+                ⌚ <span data-i18n-d="approveAdjust">Aprobar con ajuste</span>
+              </button>
+              <button onclick="approveCampoSession()" style="flex:1;padding:10px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">
+                ✓ <span data-i18n-d="approveSession">Aprobar jornada</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ POSIBLES OLVIDOS (silent track auto-detectado) ══ -->
+    <div class="page" id="page-olvidos">
+      <div class="ph">
+        <div class="ph-t">
+          <h2 data-i18n-d="missedOutsTitle">Posibles Olvidos</h2>
+          <p data-i18n-d="missedOutsSub">El sistema detectó al empleado fuera del taller sin tocar "Salida al Exterior" · revisa y cierra la jornada</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;margin-top:12px">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:calc(100vh - 220px);overflow-y:auto">
+          <div id="olvidos-list" style="display:flex;flex-direction:column;gap:8px"></div>
+          <div id="olvidos-empty" style="text-align:center;color:var(--text4);padding:30px 10px;display:none">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/></svg>
+            <p style="margin-top:8px;font-size:13px" data-i18n-d="noMissedOuts">No hay olvidos detectados</p>
+          </div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+          <div id="olvidos-detail-empty" style="text-align:center;color:var(--text4);padding:60px 20px">
+            <p style="font-size:14px" data-i18n-d="selectMissed">Selecciona un caso para ver los movimientos detectados</p>
+          </div>
+          <div id="olvidos-detail" style="display:none;flex-direction:column;gap:10px;flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+              <div>
+                <h3 id="od-emp" style="margin:0;font-size:18px"></h3>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--text4)" id="od-meta"></p>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--text4)" data-i18n-d="suggestedEnd">Hora sugerida de fin</div>
+                <div id="od-suggested" style="font-size:18px;font-weight:700;color:#f59e0b"></div>
+              </div>
+            </div>
+            <div id="od-map" style="height:340px;width:100%;border-radius:10px;overflow:hidden;background:var(--bg3)"></div>
+            <div id="od-stops" style="max-height:160px;overflow-y:auto;font-size:12px"></div>
+            <div style="display:flex;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--border);align-items:center">
+              <input type="time" id="od-end-time" style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit"/>
+              <button onclick="acceptMissedSuggestion()" style="flex:1;padding:10px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">
+                ✓ <span data-i18n-d="closeWithTime">Cerrar jornada con esta hora</span>
+              </button>
+              <button onclick="dismissMissedSession()" style="padding:10px 16px;background:rgba(107,114,128,0.15);border:1px solid var(--border);color:var(--text4);border-radius:8px;font-family:inherit;cursor:pointer" title="Sin acción / fue trabajo legítimo">
+                ⊘ <span data-i18n-d="dismiss">Descartar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CONFIANZA — empleados con auto-aprobación ══ -->
+    <div class="page" id="page-confianza">
+      <div class="ph">
+        <div class="ph-t">
+          <h2 data-i18n-d="trustTitle">Confianza · Auto-aprobación</h2>
+          <p data-i18n-d="trustSub">Empleados marcados como "de confianza" verán sus sesiones de campo aprobadas automáticamente a las 24h, siempre que no haya paradas rojas (largas en lugar no relacionado).</p>
+        </div>
+        <div class="ph-a">
+          <button onclick="runAutoApproveNow()" style="padding:8px 14px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">⚡ <span data-i18n-d="runAutoApprove">Ejecutar auto-aprobación ahora</span></button>
+        </div>
+      </div>
+      <div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:12px;padding:14px;margin-top:12px">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div style="flex:1;font-size:12px;color:var(--text2);line-height:1.5">
+            <strong style="color:#a5b4fc" data-i18n-d="trustHowItWorks">Cómo funciona:</strong>
+            <span data-i18n-d="trustHowItWorksDesc">El sistema revisa cada hora las sesiones pendientes &gt; 24h. Si el empleado tiene "Confianza" activada y la sesión NO tiene paradas rojas (paradas largas en lugares no relacionados con trabajo), se aprueba automáticamente. Tú no tienes que hacer nada. Si quieres revisarla igual, puedes desactivar la confianza en cualquier momento.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Settings de Geocoding (anti-saturación) ── -->
+      <div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h3 style="margin:0;font-size:15px;color:#60a5fa" data-i18n-d="geocodeSettings">Geocoding · Anti-saturación</h3>
+        </div>
+        <div style="font-size:11px;color:var(--text4);margin-bottom:12px">Caché compartido + Mapbox primario + Nominatim fallback. Garantiza ~0% requests reales tras 1-2 meses de uso.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px" data-i18n-d="geocodeProvider">Provider primario</label>
+            <select id="geocode-provider" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit">
+              <option value="mapbox">Mapbox (100k/mes gratis)</option>
+              <option value="locationiq">LocationIQ (150k/mes)</option>
+              <option value="geoapify">Geoapify (90k/mes)</option>
+              <option value="opencage">OpenCage (75k/mes)</option>
+              <option value="photon">Photon (sin key)</option>
+              <option value="nominatim">Nominatim (sin key, lento)</option>
+            </select>
+          </div>
+          <div id="geocode-key-wrap">
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px"><span id="geocode-key-label">Mapbox API key</span> · <a href="#" id="geocode-key-link" target="_blank" style="color:#60a5fa">obtener gratis</a></label>
+            <input id="geocode-key-input" type="password" placeholder="pk.eyJ..." style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:monospace;font-size:11px"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+          <button onclick="refreshGeocodeStats()" style="padding:7px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px">📊 Ver estadísticas</button>
+          <button onclick="saveGeocodeSettings()" style="padding:7px 14px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit;font-size:12px">💾 Guardar</button>
+        </div>
+        <div id="geocode-stats" style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:11px;color:var(--text2);display:none;line-height:1.5"></div>
+      </div>
+
+      <div id="confianza-list" style="margin-top:16px;display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+
+    <!-- ══ CLIENTES FRECUENTES ══ -->
+    <div class="page" id="page-clientes-frec">
+      <div class="ph">
+        <div class="ph-t">
+          <h2 data-i18n-d="freqClientsTitle">Clientes Frecuentes</h2>
+          <p data-i18n-d="freqClientsSub">Lugares conocidos para que el sistema los reconozca como verdes (proyecto/cliente) o amarillos (lugar razonable). Cuando un empleado pase por aquí, sus paradas se categorizan automáticamente.</p>
+        </div>
+        <div class="ph-a">
+          <button onclick="openAddClienteModal()" style="padding:8px 14px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">+ <span data-i18n-d="addClient">Agregar lugar</span></button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;margin-top:12px">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:calc(100vh - 220px);overflow-y:auto">
+          <div id="cf-list" style="display:flex;flex-direction:column;gap:8px"></div>
+          <div id="cf-empty" style="text-align:center;color:var(--text4);padding:30px 10px;display:none">
+            <p style="font-size:13px" data-i18n-d="noFreqClients">Aún no hay lugares marcados</p>
+            <p style="font-size:11px;margin-top:6px">Toca "Agregar lugar" para empezar</p>
+          </div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px">
+          <div id="cf-map" style="height:calc(100vh - 240px);width:100%;border-radius:10px;overflow:hidden;background:var(--bg3)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal agregar/editar cliente frecuente -->
+    <div id="modal-cf-add" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeCfModal()">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto">
+        <h3 style="margin:0 0 14px;font-size:18px" id="cf-modal-title" data-i18n-d="addClientTitle">Agregar lugar</h3>
+        <input type="hidden" id="cf-edit-id"/>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px" data-i18n-d="placeName">Nombre del lugar *</label>
+            <input id="cf-nombre" type="text" placeholder="Ej: Home Depot Gardena" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px" data-i18n-d="address">Dirección (opcional)</label>
+            <input id="cf-direccion" type="text" placeholder="1234 Main St" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit"/>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 100px;gap:8px">
+            <div>
+              <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px">Latitud *</label>
+              <input id="cf-lat" type="number" step="any" placeholder="33.8851" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit"/>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px">Longitud *</label>
+              <input id="cf-lng" type="number" step="any" placeholder="-118.2876" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit"/>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px" data-i18n-d="radiusM">Radio (m)</label>
+              <input id="cf-radio" type="number" value="150" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit"/>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px" data-i18n-d="categoryColor">Categoría</label>
+            <select id="cf-color" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit">
+              <option value="green">🟢 Verde · Proyecto / cliente principal</option>
+              <option value="yellow">🟡 Amarillo · Lugar razonable (gasolinera, ferretería)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px" data-i18n-d="notesOpt">Notas (opcional)</label>
+            <textarea id="cf-notas" rows="2" style="width:100%;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;resize:vertical"></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end">
+          <button onclick="closeCfModal()" style="padding:9px 16px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:8px;cursor:pointer;font-family:inherit" data-i18n-d="cancel">Cancelar</button>
+          <button onclick="saveClienteFrecuente()" style="padding:9px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit" data-i18n-d="save">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Banner notificación admin -->
+    <div id="admin-notify-banner" style="display:none;position:fixed;top:14px;right:14px;background:rgba(99,102,241,0.95);color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,0.4);z-index:9998;max-width:340px;cursor:pointer" onclick="dismissAdminBanner()">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <div style="flex:1">
+          <div id="adm-bann-title" style="font-weight:700;font-size:13px">Nuevas sesiones</div>
+          <div id="adm-bann-msg" style="font-size:11px;margin-top:2px;opacity:0.95"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ BITÁCORA ══ -->
     <div class="page" id="page-bitacora">
       <div class="ph">
         <div class="ph-t">
-          <h2>Bitácora de Auditoría</h2>
+          <h2 data-i18n-d="auditLog">Bitácora de Auditoría</h2>
           <p>Registro inmutable de todas las acciones administrativas · Solo lectura</p>
         </div>
         <div class="ph-a">
@@ -1093,7 +1377,7 @@ tbody td{padding:11px 12px;font-size:12px}
             <input type="text" class="fi" id="erm-hbruto" placeholder="ej. 8h 30m" style="flex:1;font-family:var(--mono)"/>
             <input type="text" class="fi" id="erm-hneto"  placeholder="ej. 8h 0m (neto)" style="flex:1;font-family:var(--mono)"/>
           </div>
-          <div style="font-size:10px;color:var(--text4);margin-top:4px">Brutas · Netas (pagables)</div>
+          <div style="font-size:10px;color:var(--text4);margin-top:4px" data-i18n-d="grossNet">Brutas · Netas (pagables)</div>
           <button onclick="ksAutoRecalcHours()" style="margin-top:8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;color:var(--blue);font-size:11px;font-weight:600;padding:6px 12px;cursor:pointer">
             ↺ Auto-recalcular desde Entrada/Salida del día
           </button>
@@ -1103,7 +1387,7 @@ tbody td{padding:11px 12px;font-size:12px}
           <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">RAZÓN DEL CAMBIO</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px" id="erm-reason-chips">
             <button onclick="setErmReason(this,'Corrección de hora')"        class="reason-chip">Corrección de hora</button>
-            <button onclick="setErmReason(this,'Error de sistema')"          class="reason-chip">Error de sistema</button>
+            <button onclick="setErmReason(this,'Error de sistema')"          class="reason-chip" data-i18n-d="sysErrorReason">Error de sistema</button>
             <button onclick="setErmReason(this,'Fin de turno forzado')"      class="reason-chip">Fin de turno</button>
             <button onclick="setErmReason(this,'Registro duplicado')"        class="reason-chip">Duplicado</button>
             <button onclick="setErmReason(this,'Solicitud del empleado')"    class="reason-chip">Solicitud empleado</button>
@@ -1126,7 +1410,7 @@ tbody td{padding:11px 12px;font-size:12px}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
           Eliminar
         </button>
-        <button class="btn btn-sm" onclick="closeModal('edit-record-modal')">Cancelar</button>
+        <button class="btn btn-sm" onclick="closeModal('edit-record-modal')" data-i18n-d="cancelBtn">Cancelar</button>
       </div>
     </div>
   </div>
@@ -1157,7 +1441,7 @@ tbody td{padding:11px 12px;font-size:12px}
       <input id="wc-input" type="text" autocomplete="off" style="width:100%;background:rgba(0,0,0,0.4);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color .2s">
     </div>
     <div style="display:flex;gap:8px">
-      <button id="wc-cancel" class="btn-secondary" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text2);padding:11px 16px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">Cancelar</button>
+      <button id="wc-cancel" class="btn-secondary" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text2);padding:11px 16px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s" data-i18n-d="cancelBtn">Cancelar</button>
       <button id="wc-confirm" class="btn-primary-w" style="flex:1.4;background:#ef4444;border:1px solid #ef4444;color:#fff;padding:11px 16px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         <span id="wc-confirm-lbl">Confirmar</span>
@@ -1322,6 +1606,69 @@ const DASH_TRANSLATIONS = {
     pageSistemaSub:'Cierre maestro de jornadas y configuración de seguridad',
     pageJornadas:'Editor de Jornadas',
     pageJornadasSub:'Corrección manual de registros de horas con trazabilidad completa',
+    // FASE 4 — strings comunes del portal
+    cancelBtn:'Cancelar', deleteBtn:'Eliminar', closeBtn:'Cerrar',
+    saveBtn:'Guardar', updateBtn:'Actualizar', loadList:'Cargar lista',
+    actions:'Acciones', adminActions:'Acciones admin', actionLbl:'Acción',
+    activeLbl:'Activo', openLbl:'ABIERTO', adminLbl:'Admin',
+    administrator:'Administrador',
+    analytics:'Analítica',
+    analysisProj:'Análisis por Proyecto', analysis:'Análisis',
+    auditEvidence:'Auditoría de Evidencias', audit:'Auditoría',
+    auditLog:'Bitácora de Auditoría', auditLogShort:'Bitácora',
+    erase:'Borrar', grossNet:'Brutas · Netas (pagables)', gross:'Bruto',
+    bi:'Business Intelligence',
+    cancelSchedule:'Cancelar programación',
+    loadingReceipts:'Cargando comprobantes...', loadingEmps:'Cargando empleados...',
+    loadingDots:'Cargando...',
+    closeSystem:'Cerrar Sistema',
+    accessPanelBtn:'Acceder al Panel',
+    noProjectsRegistered:'No hay proyectos registrados',
+    noRecordsInPeriod:'Sin registros en este período',
+    avgPerActiveDay:'Promedio por día activo',
+    noPhotosEvidence:'No hay fotos de evidencia',
+    avgPerShift:'Promedio por jornada',
+    noEmpsLbl:'Sin empleados',
+    totalToPayLbl:'Total a Pagar',
+    noShiftsInPeriod:'Sin jornadas completadas en este período',
+    noShiftsHere:'Sin jornadas en este período',
+    noEmpsLoaded:'Sin empleados cargados — actualiza la página',
+    errorLoadingReceipts:'Error cargando comprobantes',
+    noConnectionLbl:'Sin conexión',
+    noReceiptsLbl:'Sin comprobantes',
+    noOpenShiftsNow:'Sin jornadas abiertas ahora.',
+    noActivityYet:'Sin actividad registrada aún',
+    errorLoadingLog:'Error cargando log',
+    noRecordsForPeriod:'Sin registros para el período seleccionado',
+    noLogsForFilter:'Sin logs para este filtro',
+    noLoginAttempts:'Sin intentos registrados',
+    sysErrorReason:'Error de sistema',
+    forFilterPortal:'para este filtro',
+    // FASE 11 — strings extra del portal
+    todayLbl:'HOY', yesterdayLbl:'AYER',
+    minAgo:'min', hourAbbr:'h', dayAbbr:'d',
+    agoSuffix:'hace',
+    refresh:'Actualizar',
+    refreshTip:'Refrescar datos',
+    noRecords:'Sin registros',
+    noEvents:'Sin eventos registrados',
+    forFilter:'para este filtro',
+    eventsAppearMsg:'Los eventos aparecerán aquí cuando el admin realice acciones.',
+    loadingDataD:'Cargando datos...',
+    noConnSb:'Sin conexión a Supabase',
+    auditNeedsNetD:'La Bitácora requiere internet para funcionar.',
+    sortBy:'Ordenar por',
+    nameLbl:'Nombre',
+    dateLbl:'Fecha',
+    hoursLbl:'Horas',
+    statusLbl:'Estado',
+    actionLbl:'Acción',
+    detailLbl:'Detalle',
+    paid:'Pagado', pending:'Pendiente',
+    confirmedLbl:'Confirmado', revertedLbl:'Revertido',
+    activeLbl:'Activo', closedLbl:'Cerrado',
+    save:'Guardar', cancel:'Cancelar', delete:'Eliminar',
+    edit:'Editar', accept:'Aceptar',
     // Kill switch
     systemClosed:'SISTEMA CERRADO',
   },
@@ -1353,6 +1700,68 @@ const DASH_TRANSLATIONS = {
     pageSistemaSub:'Master shift lockdown and security configuration',
     pageJornadas:'Shift Editor',
     pageJornadasSub:'Manual correction of time records with full traceability',
+    // PHASE 4
+    cancelBtn:'Cancel', deleteBtn:'Delete', closeBtn:'Close',
+    saveBtn:'Save', updateBtn:'Update', loadList:'Load list',
+    actions:'Actions', adminActions:'Admin actions', actionLbl:'Action',
+    activeLbl:'Active', openLbl:'OPEN', adminLbl:'Admin',
+    administrator:'Administrator',
+    analytics:'Analytics',
+    analysisProj:'Analysis by Project', analysis:'Analysis',
+    auditEvidence:'Evidence Audit', audit:'Audit',
+    auditLog:'Audit Log', auditLogShort:'Audit Log',
+    erase:'Erase', grossNet:'Gross · Net (payable)', gross:'Gross',
+    bi:'Business Intelligence',
+    cancelSchedule:'Cancel schedule',
+    loadingReceipts:'Loading receipts...', loadingEmps:'Loading employees...',
+    loadingDots:'Loading...',
+    closeSystem:'Close System',
+    accessPanelBtn:'Access Panel',
+    noProjectsRegistered:'No projects registered',
+    noRecordsInPeriod:'No records in this period',
+    avgPerActiveDay:'Avg per active day',
+    noPhotosEvidence:'No evidence photos',
+    avgPerShift:'Avg per shift',
+    noEmpsLbl:'No employees',
+    totalToPayLbl:'Total to Pay',
+    noShiftsInPeriod:'No completed shifts in this period',
+    noShiftsHere:'No shifts in this period',
+    noEmpsLoaded:'No employees loaded — refresh the page',
+    errorLoadingReceipts:'Error loading receipts',
+    noConnectionLbl:'No connection',
+    noReceiptsLbl:'No receipts',
+    noOpenShiftsNow:'No open shifts now.',
+    noActivityYet:'No activity recorded yet',
+    errorLoadingLog:'Error loading log',
+    noRecordsForPeriod:'No records for the selected period',
+    noLogsForFilter:'No logs for this filter',
+    noLoginAttempts:'No login attempts recorded',
+    sysErrorReason:'System error',
+    forFilterPortal:'for this filter',
+    todayLbl:'TODAY', yesterdayLbl:'YESTERDAY',
+    minAgo:'min', hourAbbr:'h', dayAbbr:'d',
+    agoSuffix:'ago',
+    refresh:'Refresh',
+    refreshTip:'Refresh data',
+    noRecords:'No records',
+    noEvents:'No events recorded',
+    forFilter:'for this filter',
+    eventsAppearMsg:'Events will appear here when the admin performs actions.',
+    loadingDataD:'Loading data...',
+    noConnSb:'No Supabase connection',
+    auditNeedsNetD:'Audit Log requires internet to work.',
+    sortBy:'Sort by',
+    nameLbl:'Name',
+    dateLbl:'Date',
+    hoursLbl:'Hours',
+    statusLbl:'Status',
+    actionLbl:'Action',
+    detailLbl:'Detail',
+    paid:'Paid', pending:'Pending',
+    confirmedLbl:'Confirmed', revertedLbl:'Reverted',
+    activeLbl:'Active', closedLbl:'Closed',
+    save:'Save', cancel:'Cancel', delete:'Delete',
+    edit:'Edit', accept:'Accept',
     // Kill switch
     systemClosed:'SYSTEM LOCKED',
   }
@@ -1859,7 +2268,7 @@ function renderObras(){
 
   // Project cards
   const grid=document.getElementById('obra-grid');
-  if(!allProjects.length){grid.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><p>No hay proyectos registrados</p></div>`;return;}
+  if(!allProjects.length){grid.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><p data-i18n-d="noProjectsRegistered">No hay proyectos registrados</p></div>`;return;}
 
   const COLORS=['#00d68f','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899','#10b981'];
   function pcolor(p){ return p.color||COLORS[allProjects.indexOf(p)%COLORS.length]; }
@@ -1943,7 +2352,7 @@ function openObraModal(nombre){
     </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-hd"><div><h3>Timeline de Cobertura Diaria</h3><p>Últimos 14 días con actividad</p></div></div>
-      ${spans.length?tlHTML:'<p style="color:var(--text3);font-size:12px">Sin registros en este período</p>'}
+      ${spans.length?tlHTML:'<p style="color:var(--text3);font-size:12px" data-i18n-d="noRecordsInPeriod">Sin registros en este período</p>'}
     </div>
     ${emps.length?`<div class="card" style="margin-bottom:16px"><div class="card-hd"><div><h3>Equipo Asignado</h3></div></div><div style="display:flex;gap:8px;flex-wrap:wrap">${emps.map(u=>{const e=allEmployees.find(x=>x.usuario===u);return`<span class="badge badge-b">👤 ${s(e?.nombre||u)}</span>`;}).join('')}</div></div>`:'' }
     ${photos.length?`<div class="card"><div class="card-hd"><div><h3>Fotos Recientes</h3><p>${photos.length} evidencias</p></div><button class="btn btn-g btn-sm" onclick="nav('auditoria');closeModal('obra-modal')">Ver todo</button></div><div class="photo-grid" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${photos.slice(0,9).map(ph=>`<div class="photo-tile" onclick="openLightbox('${s(ph.data_url)}','${s(ph.subido_por)}','${s(ph.fecha)}','${s(ph.hora)}','')"><img src="${ph.data_url}" loading="lazy"/><div class="photo-meta"><div>${s(ph.subido_por)}</div><div>${s(ph.fecha)}</div></div></div>`).join('')}</div></div>`:''}`;
@@ -1973,7 +2382,7 @@ function renderAnalisis(){
     <div class="kpi-row">
       <div class="kpi g"><div class="kpi-ic">⏱</div><div class="kpi-val">${totalH.toFixed(1)}h</div><div class="kpi-lbl">Horas totales de obra</div><div class="kpi-sub">MAX(salida)−MIN(entrada)/día</div></div>
       <div class="kpi b"><div class="kpi-ic">📅</div><div class="kpi-val">${spans.length}</div><div class="kpi-lbl">Días con actividad</div><div class="kpi-sub">en los últimos 90 días</div></div>
-      <div class="kpi a"><div class="kpi-ic">📊</div><div class="kpi-val">${avgH.toFixed(1)}h</div><div class="kpi-lbl">Promedio por día activo</div></div>
+      <div class="kpi a"><div class="kpi-ic">📊</div><div class="kpi-val">${avgH.toFixed(1)}h</div><div class="kpi-lbl" data-i18n-d="avgPerActiveDay">Promedio por día activo</div></div>
       <div class="kpi p"><div class="kpi-ic">👷</div><div class="kpi-val">${emps.length}</div><div class="kpi-lbl">Empleados asignados</div></div>
     </div>
     <div class="g-wide" style="margin-bottom:18px">
@@ -1983,14 +2392,14 @@ function renderAnalisis(){
     <div class="card">
       <div class="card-hd"><div><h3>Detalle de Jornadas</h3><p>MAX−MIN span por día</p></div></div>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Fecha</th><th>Primer Entrada</th><th>Última Salida</th><th>Span Total</th><th>Empleados</th><th>Estado</th></tr></thead>
+        <thead><tr><th data-i18n-d="dateLbl">Fecha</th><th>Primer Entrada</th><th>Última Salida</th><th>Span Total</th><th data-i18n-d="tabEmployees">Empleados</th><th data-i18n-d="statusLbl">Estado</th></tr></thead>
         <tbody>${spans.slice().reverse().slice(0,30).map(sp=>`<tr>
           <td>${new Date(sp.date+'T12:00:00').toLocaleDateString(_i18nLocaleDash(),{timeZone:'UTC',weekday:'short',day:'2-digit',month:'short',year:'numeric'})}</td>
           <td>${sp.firstIn.toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}</td>
           <td>${sp.ongoing?'<span style="color:var(--emerald)">En curso</span>':sp.lastOut.toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour:'2-digit',minute:'2-digit'})}</td>
           <td style="color:var(--emerald);font-weight:700">${sp.spanH.toFixed(2)}h</td>
           <td>${sp.empCount} 👷</td>
-          <td>${sp.ongoing?'<span class="badge badge-g">Activo</span>':'<span class="badge badge-gray">Completo</span>'}</td>
+          <td>${sp.ongoing?'<span class="badge badge-g" data-i18n-d="activeLbl">Activo</span>':'<span class="badge badge-gray">Completo</span>'}</td>
         </tr>`).join('')}</tbody>
       </table></div>
     </div>`;
@@ -2146,7 +2555,7 @@ function renderAuditoria(){
   document.getElementById('aud-cnt').textContent='0';
 
   const grid=document.getElementById('photo-grid');
-  if(!photos.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><p>No hay fotos de evidencia</p></div>`;return;}
+  if(!photos.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><p data-i18n-d="noPhotosEvidence">No hay fotos de evidencia</p></div>`;return;}
 
   grid.innerHTML=photos.map((ph,i)=>{
     const proj=allProjects.find(p=>p.id===ph.proyecto_id);
@@ -2249,7 +2658,7 @@ function openLightbox(src,subido,fecha,hora,proj){
   document.getElementById('lb-img').src=src;
   document.getElementById('lb-meta').innerHTML=`
     <div><span style="color:var(--text3)">Empleado</span><br/><b>${s(subido)}</b></div>
-    <div><span style="color:var(--text3)">Fecha</span><br/><b>${s(fecha)} ${s(hora)}</b></div>
+    <div><span style="color:var(--text3)" data-i18n-d="dateLbl">Fecha</span><br/><b>${s(fecha)} ${s(hora)}</b></div>
     ${proj?`<div><span style="color:var(--text3)">Proyecto</span><br/><b>${s(proj)}</b></div>`:''}`;
   document.getElementById('lightbox').classList.add('on');
 }
@@ -2280,7 +2689,7 @@ function renderPresencia(){
     <div class="kpi g"><div class="kpi-ic">👷</div><div class="kpi-val">${liveNow}</div><div class="kpi-lbl">En obra ahora</div></div>
     <div class="kpi b"><div class="kpi-ic">📋</div><div class="kpi-val">${totalJornadas}</div><div class="kpi-lbl">Jornadas completadas</div><div class="kpi-sub">últimos ${days} días</div></div>
     <div class="kpi a"><div class="kpi-ic">⏱</div><div class="kpi-val">${(totalMins/60).toFixed(0)}h</div><div class="kpi-lbl">Horas registradas totales</div></div>
-    <div class="kpi p"><div class="kpi-ic">📊</div><div class="kpi-val">${avgHPerDay}h</div><div class="kpi-lbl">Promedio por jornada</div></div>`;
+    <div class="kpi p"><div class="kpi-ic">📊</div><div class="kpi-val">${avgHPerDay}h</div><div class="kpi-lbl" data-i18n-d="avgPerShift">Promedio por jornada</div></div>`;
   document.getElementById('pr-chart-sub').textContent=`${days} días — ${empFilter?cap(emps[0]?.nombre||empFilter):'todos los empleados'}`;
 
   // Daily hours chart
@@ -2324,7 +2733,7 @@ function renderPresencia(){
 
   // Heatmaps
   const hm=document.getElementById('pr-heatmaps');
-  if(!emps.length){hm.innerHTML='<p style="color:var(--text3);font-size:12px">Sin empleados</p>';return;}
+  if(!emps.length){hm.innerHTML='<p style="color:var(--text3);font-size:12px" data-i18n-d="noEmpsLbl">Sin empleados</p>';return;}
   hm.innerHTML=emps.map(e=>{
     const presMap={};
     recs.filter(r=>r.usuario===e.usuario&&r.tipo==='Entrada').forEach(r=>{
@@ -2597,8 +3006,8 @@ function renderNomina(){
 
   summaryEl.style.display='flex';
   summaryEl.innerHTML=`
-    <div class="nm-sum-item"><div class="nm-sum-val" style="color:var(--emerald)">${fmtMoney(sumCents)}</div><div class="nm-sum-lbl">Total a Pagar</div></div>
-    <div class="nm-sum-item"><div class="nm-sum-val" style="color:var(--blue)">${activeResults.length}</div><div class="nm-sum-lbl">Empleados</div></div>
+    <div class="nm-sum-item"><div class="nm-sum-val" style="color:var(--emerald)">${fmtMoney(sumCents)}</div><div class="nm-sum-lbl" data-i18n-d="totalToPayLbl">Total a Pagar</div></div>
+    <div class="nm-sum-item"><div class="nm-sum-val" style="color:var(--blue)">${activeResults.length}</div><div class="nm-sum-lbl" data-i18n-d="tabEmployees">Empleados</div></div>
     <div class="nm-sum-item"><div class="nm-sum-val">${fmtH(sumHBruto)}</div><div class="nm-sum-lbl">Horas Brutas</div></div>
     <div class="nm-sum-item"><div class="nm-sum-val" style="color:var(--amber)">${fmtH(sumLunch)}</div><div class="nm-sum-lbl">Lunch Descontado</div></div>
     <div class="nm-sum-item"><div class="nm-sum-val" style="color:var(--emerald)">${fmtH(sumHNeto)}</div><div class="nm-sum-lbl">Horas Netas Pagables</div></div>
@@ -2609,7 +3018,7 @@ function renderNomina(){
     </div>`;
 
   if(!activeResults.length){
-    wrap.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/></svg><p>Sin jornadas completadas en este período</p></div>`;
+    wrap.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/></svg><p data-i18n-d="noShiftsInPeriod">Sin jornadas completadas en este período</p></div>`;
     return;
   }
 
@@ -2627,7 +3036,7 @@ function renderNomina(){
         <th style="text-align:right">Lunch</th>
         <th style="text-align:right">Hrs Netas</th>
         <th style="text-align:center">$/hr</th>
-        <th style="text-align:right">Total a Pagar</th>
+        <th style="text-align:right" data-i18n-d="totalToPayLbl">Total a Pagar</th>
       </tr></thead>
       <tbody id="nm-tbody"></tbody>
     </table></div>`;
@@ -2640,7 +3049,7 @@ function renderNomina(){
       rowsHTML+=`<tr style="opacity:.4">
         <td class="td2">${idx+1}</td>
         <td>${s(cap(r.nombre))}</td>
-        <td colspan="6" style="color:var(--text3);font-size:11px">Sin jornadas en este período</td>
+        <td colspan="6" style="color:var(--text3);font-size:11px" data-i18n-d="noShiftsHere">Sin jornadas en este período</td>
       </tr>`;
       return;
     }
@@ -2663,8 +3072,8 @@ function renderNomina(){
       <tr><td></td><td colspan="7" style="padding:0">
         <table style="width:100%;border-collapse:collapse">
           <thead style="background:rgba(0,0,0,.2)">
-            <tr><th style="padding:5px 12px;font-size:9px;color:var(--text3);text-align:left">Fecha</th>
-            <th style="padding:5px 12px;font-size:9px;color:var(--text3);text-align:right">Bruto</th>
+            <tr><th style="padding:5px 12px;font-size:9px;color:var(--text3);text-align:left" data-i18n-d="dateLbl">Fecha</th>
+            <th style="padding:5px 12px;font-size:9px;color:var(--text3);text-align:right" data-i18n-d="gross">Bruto</th>
             <th style="padding:5px 12px;font-size:9px;color:var(--text3);text-align:right">Lunch</th>
             <th style="padding:5px 12px;font-size:9px;color:var(--text3);text-align:right">Neto</th>
             <th style="padding:5px 12px;font-size:9px;color:var(--text3);text-align:left">Tipo</th>
@@ -3312,7 +3721,7 @@ function toast(msg,type='ok'){
 
       html+=`</div>
       <div class="cdp-footer">
-        <button class="cdp-clear" data-a="clear">Borrar</button>
+        <button class="cdp-clear" data-a="clear" data-i18n-d="erase">Borrar</button>
         <button class="cdp-today-btn" data-a="today">Hoy</button>
       </div>`;
 
@@ -3402,7 +3811,7 @@ async function loadPagosPage(){
 async function renderRatesTable(){
   const wrap=document.getElementById('rates-table');
   if(!wrap) return;
-  if(!allEmployees.length){wrap.innerHTML='<div class="empty" style="padding:20px 0"><p>Sin empleados cargados — actualiza la página</p></div>';return;}
+  if(!allEmployees.length){wrap.innerHTML='<div class="empty" style="padding:20px 0"><p data-i18n-d="noEmpsLoaded">Sin empleados cargados — actualiza la página</p></div>';return;}
   const rows=allEmployees.map(emp=>{
     const rate=parseFloat(emp.hourly_rate)||0;
     const rateDisp=rate>0?'$'+rate.toFixed(2):'-';
@@ -3416,17 +3825,17 @@ async function renderRatesTable(){
         <div style="display:flex;gap:8px;align-items:center">
           <span style="color:var(--text4);font-size:13px">$</span>
           <input type="number" class="fi rate-inp" id="rate-inp-${emp.usuario}" value="${rate||''}" min="0.01" max="999" step="0.01" placeholder="0.00" style="width:90px;padding:6px 10px;font-family:var(--mono)"/>
-          <button onclick="saveHourlyRate('${emp.usuario}')" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);border-radius:8px;color:var(--green);padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600">Guardar</button>
+          <button onclick="saveHourlyRate('${emp.usuario}')" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);border-radius:8px;color:var(--green);padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600" data-i18n-d="saveBtn">Guardar</button>
         </div>
       </td>
     </tr>`;
   }).join('');
   wrap.innerHTML=`<table style="width:100%;border-collapse:collapse">
     <thead><tr style="border-bottom:1px solid var(--border)">
-      <th style="padding:8px 14px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Nombre</th>
+      <th style="padding:8px 14px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px" data-i18n-d="nameLbl">Nombre</th>
       <th style="padding:8px 14px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Usuario</th>
       <th style="padding:8px 14px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Tarifa/hr</th>
-      <th style="padding:8px 14px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px" id="rate-edit-col-hdr" ${rateEditMode?'':'style="display:none"'}>Actualizar</th>
+      <th style="padding:8px 14px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px" id="rate-edit-col-hdr" ${rateEditMode?'':'style="display:none"'} data-i18n-d="updateBtn">Actualizar</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -3657,8 +4066,8 @@ function renderPaymentsTable(){
       <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Hrs pagadas</th>
       <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Tarifa</th>
       <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Total</th>
-      <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Estado</th>
-      <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Confirmado</th>
+      <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px" data-i18n-d="statusLbl">Estado</th>
+      <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px" data-i18n-d="confirmedLbl">Confirmado</th>
       <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Emitido</th>
       <th style="padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Nota</th>
     </tr></thead>
@@ -3969,18 +4378,18 @@ function toggleOpenShiftsList(){
       ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
            <thead><tr style="border-bottom:1px solid var(--border)">
              <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px">Empleado</th>
-             <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px">Entrada</th>
-             <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px">Activo</th>
+             <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px" data-i18n-d="typeEntrada">Entrada</th>
+             <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px" data-i18n-d="activeLbl">Activo</th>
              <th style="padding:6px 10px"></th>
            </tr></thead>
            <tbody>${openShiftsData.map(s=>`<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
              <td style="padding:7px 10px;font-weight:600;color:var(--text1)">${cap(s.nombre||s.usuario)}</td>
              <td style="padding:7px 10px;font-family:var(--mono);color:var(--text3)">${s.hora_entrada}</td>
              <td style="padding:7px 10px;font-family:var(--mono);color:var(--orange)">${Math.floor(s.mins_activos/60)}h ${s.mins_activos%60}m</td>
-             <td style="padding:7px 10px"><button onclick="runForceCloseOne('${s.usuario}')" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:var(--red);font-size:11px;padding:4px 10px;cursor:pointer">Cerrar</button></td>
+             <td style="padding:7px 10px"><button onclick="runForceCloseOne('${s.usuario}')" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;color:var(--red);font-size:11px;padding:4px 10px;cursor:pointer" data-i18n-d="closeBtn">Cerrar</button></td>
            </tr>`).join('')}</tbody>
          </table>`
-      : '<div style="color:var(--text4);font-size:12px;padding:8px 0">Sin jornadas abiertas ahora.</div>';
+      : '<div style="color:var(--text4);font-size:12px;padding:8px 0" data-i18n-d="noOpenShiftsNow">Sin jornadas abiertas ahora.</div>';
   }else{
     el.style.display='none';
   }
@@ -3991,15 +4400,15 @@ async function renderSistemaAuditLog(){
   if(!el) return;
   try{
     const rows = await sbFetch(`bi_audit_log?accion=in.(kill_switch_ON,kill_switch_OFF,force_close_shifts,force_close_one)&order=created_at.desc&limit=30`);
-    if(!rows.length){ el.innerHTML='<div class="empty" style="padding:16px 0"><p>Sin actividad registrada aún</p></div>'; return; }
+    if(!rows.length){ el.innerHTML='<div class="empty" style="padding:16px 0"><p data-i18n-d="noActivityYet">Sin actividad registrada aún</p></div>'; return; }
     const typeColors={ kill_switch_ON:'var(--red)', kill_switch_OFF:'var(--green)', force_close_shifts:'var(--orange)', force_close_one:'var(--orange)' };
     const typeLabels={ kill_switch_ON:'Sistema Cerrado', kill_switch_OFF:'Sistema Abierto', force_close_shifts:'Cierre Masivo', force_close_one:'Cierre Individual' };
     el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="border-bottom:1px solid var(--border)">
-        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Acción</th>
-        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Admin</th>
+        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase" data-i18n-d="actionLbl">Acción</th>
+        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase" data-i18n-d="adminLbl">Admin</th>
         <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Detalles</th>
-        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Fecha</th>
+        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase" data-i18n-d="dateLbl">Fecha</th>
       </tr></thead>
       <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
         <td style="padding:8px 10px"><span style="color:${typeColors[r.accion]||'var(--text2)'};font-weight:700;font-size:11px">${s(typeLabels[r.accion]||r.accion)}</span></td>
@@ -4054,7 +4463,7 @@ async function loadJornadasEditor(){
     jeRecords = await sbFetch(query);
 
     if(!jeRecords.length){
-      wrap.innerHTML='<div class="empty" style="padding:40px 0"><p>Sin registros para el período seleccionado</p></div>';
+      wrap.innerHTML='<div class="empty" style="padding:40px 0"><p data-i18n-d="noRecordsForPeriod">Sin registros para el período seleccionado</p></div>';
       return;
     }
 
@@ -4109,7 +4518,7 @@ function renderJornadasTable(){
         <td style="padding:8px 12px;font-size:11px;color:var(--text4)">${s(r.area_trabajo||r.coords||'—')}</td>
         <td style="padding:8px 12px">
           <div style="display:flex;gap:6px">
-            <button onclick="openEditModal(${r.id})" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:6px;color:var(--blue);padding:4px 10px;font-size:11px;cursor:pointer">Editar</button>
+            <button onclick="openEditModal(${r.id})" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:6px;color:var(--blue);padding:4px 10px;font-size:11px;cursor:pointer" data-i18n-d="edit">Editar</button>
           </div>
         </td>
       ${i>0?'</tr>':''}`).join('')}
@@ -4119,13 +4528,13 @@ function renderJornadasTable(){
   wrap.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px">
     <thead><tr style="border-bottom:2px solid var(--border)">
       <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Empleado</th>
-      <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Fecha</th>
+      <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase" data-i18n-d="dateLbl">Fecha</th>
       <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Resumen</th>
       <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Tipo</th>
       <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Hora</th>
       <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Timestamp</th>
       <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Área / GPS</th>
-      <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Acciones</th>
+      <th style="padding:8px 12px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase" data-i18n-d="actions">Acciones</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -4579,14 +4988,14 @@ async function loadAdminLogs(){
       p_accion: filter||null
     });
     if(!rows||!rows.length){
-      el.innerHTML='<div class="empty" style="padding:16px 0"><p>Sin logs para este filtro</p></div>'; return;
+      el.innerHTML='<div class="empty" style="padding:16px 0"><p data-i18n-d="noLogsForFilter">Sin logs para este filtro</p></div>'; return;
     }
     el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
       <thead><tr style="border-bottom:1px solid var(--border)">
-        <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Acción</th>
+        <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase" data-i18n-d="actionLbl">Acción</th>
         <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Usuario</th>
         <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Detalles</th>
-        <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase;white-space:nowrap">Fecha</th>
+        <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase;white-space:nowrap" data-i18n-d="dateLbl">Fecha</th>
       </tr></thead>
       <tbody>${rows.map(r=>{
         const isErr  = /delete|wipe|kill_switch_ON/.test(r.accion);
@@ -4612,13 +5021,13 @@ async function loadLoginAttempts(){
   try{
     const rows = await sbRpc('admin_get_login_attempts',{ p_limit: 50 });
     if(!rows||!rows.length){
-      el.innerHTML='<div class="empty" style="padding:12px 0"><p>Sin intentos registrados</p></div>'; return;
+      el.innerHTML='<div class="empty" style="padding:12px 0"><p data-i18n-d="noLoginAttempts">Sin intentos registrados</p></div>'; return;
     }
     el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
       <thead><tr style="border-bottom:1px solid var(--border)">
         <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Usuario</th>
         <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Resultado</th>
-        <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase">Fecha</th>
+        <th style="padding:5px 8px;text-align:left;color:var(--text4);font-size:10px;text-transform:uppercase" data-i18n-d="dateLbl">Fecha</th>
       </tr></thead>
       <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid rgba(255,255,255,0.03)">
         <td style="padding:6px 8px;color:var(--text2)">${s(r.usuario)}</td>
@@ -4670,7 +5079,7 @@ async function renderDashBitacora(){
     el.innerHTML=`<table style="width:100%;border-collapse:collapse">
       <thead><tr style="font-size:10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">
         <th style="padding:6px 10px;font-weight:600">EVENTO</th>
-        <th style="padding:6px 10px;font-weight:600">ADMIN</th>
+        <th style="padding:6px 10px;font-weight:600" data-i18n-d="adminLbl">ADMIN</th>
         <th style="padding:6px 10px;font-weight:600">EMPLEADO</th>
         <th style="padding:6px 10px;font-weight:600">DETALLE</th>
         <th style="padding:6px 10px;font-weight:600">FECHA / HORA</th>
@@ -4700,6 +5109,925 @@ async function renderDashBitacora(){
     console.error('[Bitácora dash]',e);
   }
 }
+
+// FIELD WORK + MISSED OUTS — Tracking de campo y olvidos
+// ════════════════════════════════════════════════════════════════
+let _campoSessions = [];
+let _olvidosSessions = [];
+let _campoSelected = null;
+let _olvidosSelected = null;
+let _cdMap = null, _odMap = null;
+let _cdLayer = null, _odLayer = null;
+const _geocodeCache = {};
+
+// ── REVERSE GEOCODING (Nominatim/OSM, gratis) ──
+
+// ── Cargar sesiones desde Supabase ──
+async function loadFieldSessions(){
+  if(!supabaseUrl || !supabaseKey) return;
+  try {
+    // Paginación: por default últimos 30 días + max 200 sesiones
+    const days = window._fieldSessionsDays || 30;
+    const since = new Date(Date.now() - days*24*60*60*1000).toISOString();
+    const limit = window._fieldSessionsLimit || 200;
+    const url = `${supabaseUrl}/rest/v1/field_sessions?select=*&order=started_at.desc&limit=${limit}&started_at=gte.${since}`;
+    const res = await fetch(url, {headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey}});
+    if(!res.ok) return;
+    const all = await res.json();
+    _campoSessions = all.filter(s => s.trigger_mode === 'BUTTON_PRESSED');
+    _olvidosSessions = all.filter(s => s.trigger_mode === 'AUTO_DETECTED');
+    // Badges
+    const cb = document.getElementById('badge-campo');
+    const ob = document.getElementById('badge-olvidos');
+    const cp = _campoSessions.filter(s=>s.approval_status==='PENDING').length;
+    const op = _olvidosSessions.filter(s=>s.approval_status==='PENDING').length;
+    if(cb){ cb.textContent=cp; cb.style.display = cp>0?'inline-flex':'none'; }
+    if(ob){ ob.textContent=op; ob.style.display = op>0?'inline-flex':'none'; }
+  } catch(e){ console.warn('loadFieldSessions:',e); }
+}
+
+// ── Cargar tracks GPS de una sesión ──
+async function loadSessionTracks(sessionId){
+  if(!supabaseUrl || !supabaseKey || !sessionId) return [];
+  try {
+    const url = `${supabaseUrl}/rest/v1/gps_tracks?session_id=eq.${sessionId}&order=timestamp.asc`;
+    const res = await fetch(url, {headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey}});
+    if(!res.ok) return [];
+    return await res.json();
+  } catch(e){ return []; }
+}
+
+// ── Detectar paradas y categorizar ──
+function _categorize(avgLat, avgLng, minutes, projectsCoords, clientesCoords){
+  const LONG_STOP_MIN = 60;
+  // 1. Cliente frecuente (verde o amarillo según preferencia del admin)
+  if(clientesCoords && clientesCoords.length){
+    for(const c of clientesCoords){
+      const r = (c.radio_m||150)/1000; // a km
+      if(haversineKm(avgLat,avgLng,c.lat,c.lng) <= r){
+        return c.color || 'green';
+      }
+    }
+  }
+  // 2. Proyecto activo (verde)
+  if(projectsCoords && projectsCoords.length){
+    const np = projectsCoords.find(p => haversineKm(avgLat,avgLng,p.lat,p.lng) < 0.15);
+    if(np) return 'green';
+  }
+  // 3. Yellow por default; rojo si parada larga sin match
+  if(minutes >= LONG_STOP_MIN) return 'red';
+  return 'yellow';
+}
+
+function detectStops(tracks, projectsCoords, clientesCoords){
+  const STOP_RADIUS_M = 50;
+  const MIN_STOP_MIN = 15;
+  const stops = [];
+  if(!tracks.length) return stops;
+  let cluster = [tracks[0]];
+  function flush(){
+    if(!cluster.length) return;
+    const startTs = new Date(cluster[0].timestamp);
+    const endTs = new Date(cluster[cluster.length-1].timestamp);
+    const minutes = Math.round((endTs-startTs)/60000);
+    if(minutes >= MIN_STOP_MIN){
+      const avgLat = cluster.reduce((s,x)=>s+x.lat,0)/cluster.length;
+      const avgLng = cluster.reduce((s,x)=>s+x.lng,0)/cluster.length;
+      const category = _categorize(avgLat, avgLng, minutes, projectsCoords, clientesCoords);
+      stops.push({lat:avgLat,lng:avgLng,minutes,category,startTs,endTs,placeName:null});
+    }
+  }
+  for(let i=1;i<tracks.length;i++){
+    const t = tracks[i];
+    const last = cluster[cluster.length-1];
+    const distM = haversineKm(t.lat,t.lng,last.lat,last.lng)*1000;
+    if(distM <= STOP_RADIUS_M){
+      cluster.push(t);
+    } else {
+      flush();
+      cluster = [t];
+    }
+  }
+  flush();
+  return stops;
+}
+
+function haversineKm(lat1,lng1,lat2,lng2){
+  const R=6371;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ── Renderizar lista de Trabajo de Campo ──
+
+// ════════════════════════════════════════════════════════════════
+// FUNCIONES BÁSICAS (orig + completar) — Field sessions, olvidos, aprobaciones
+// ════════════════════════════════════════════════════════════════
+
+async function approveCampoSession(){
+  if(!_campoSelected) return;
+  const s = _campoSessions.find(x=>x.id===_campoSelected);
+  if(!s) return;
+  if(!confirm('Aprobar esta jornada?\n\n'+s.usuario+' · '+(s.total_minutes||'?')+' min')) return;
+  await updateSessionStatus(s.id, {approval_status:'APPROVED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), approved_end_time: s.ended_at});
+  toast('Jornada aprobada','ok');
+  await loadFieldSessions();
+  renderCampoSessions();
+  document.getElementById('campo-detail').style.display='none';
+  document.getElementById('campo-detail-empty').style.display='block';
+}
+
+async function approveCampoSessionAdjust(){
+  if(!_campoSelected) return;
+  const s = _campoSessions.find(x=>x.id===_campoSelected);
+  if(!s) return;
+  const ans = prompt('Hora de fin ajustada (HH:MM, formato 24h):');
+  if(!ans) return;
+  const m = ans.match(/^(\d{1,2}):(\d{2})$/);
+  if(!m){ toast('Formato HH:MM','ko'); return; }
+  const newEnd = new Date(s.started_at);
+  newEnd.setHours(parseInt(m[1],10), parseInt(m[2],10), 0, 0);
+  if(newEnd <= new Date(s.started_at)){ toast('Fin debe ser posterior al inicio','ko'); return; }
+  const newMin = Math.round((newEnd - new Date(s.started_at))/60000);
+  await updateSessionStatus(s.id, {approval_status:'APPROVED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), approved_end_time: newEnd.toISOString(), total_minutes: newMin});
+  toast('Aprobada con '+Math.floor(newMin/60)+'h '+(newMin%60)+'m','ok');
+  await loadFieldSessions();
+  renderCampoSessions();
+  document.getElementById('campo-detail').style.display='none';
+  document.getElementById('campo-detail-empty').style.display='block';
+}
+
+async function rejectCampoSession(){
+  if(!_campoSelected) return;
+  const note = prompt('Motivo del rechazo:');
+  if(note===null) return;
+  await updateSessionStatus(_campoSelected, {approval_status:'REJECTED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), admin_note: note || ''});
+  toast('Rechazada','ok');
+  await loadFieldSessions();
+  renderCampoSessions();
+  document.getElementById('campo-detail').style.display='none';
+  document.getElementById('campo-detail-empty').style.display='block';
+}
+
+async function updateSessionStatus(id, patch){
+  if(!supabaseUrl || !supabaseKey) return;
+  try {
+    await fetch(supabaseUrl+'/rest/v1/field_sessions?id=eq.'+id,{method:'PATCH',headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},body: JSON.stringify(patch)});
+  } catch(e){ console.error(e); }
+}
+
+// ── APROBACIÓN MASIVA ──
+async function approveAllPendingThisWeek(){
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7*24*60*60*1000);
+  const eligible = _campoSessions.filter(s => {
+    return s.approval_status==='PENDING' && s.ended_at && new Date(s.started_at) >= weekAgo;
+  });
+  if(!eligible.length){ toast('No hay sesiones pendientes esta semana','ko'); return; }
+  if(!confirm('Aprobar TODAS las '+eligible.length+' sesiones pendientes de esta semana?\n\n⚠️ Asegúrate de haberlas revisado individualmente si tienes dudas.')) return;
+  const adminUser = window.adminUser || 'admin';
+  const ts = new Date().toISOString();
+  let ok=0;
+  for(const s of eligible){
+    try {
+      await fetch(supabaseUrl+'/rest/v1/field_sessions?id=eq.'+s.id,{method:'PATCH',headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},body: JSON.stringify({approval_status:'APPROVED', approved_by:adminUser, approved_at:ts, approved_end_time:s.ended_at, admin_note:'Aprobada masivamente (semana)'})});
+      ok++;
+    } catch(e){}
+  }
+  toast('✓ '+ok+'/'+eligible.length+' aprobadas','ok');
+  await loadFieldSessions();
+  renderCampoSessions();
+}
+
+// ── VENTANA #2: Posibles Olvidos ──
+function renderOlvidosSessions(){
+  const list = document.getElementById('olvidos-list');
+  const empty = document.getElementById('olvidos-empty');
+  if(!list) return;
+  const filt = _olvidosSessions.filter(s=>s.approval_status==='PENDING');
+  if(!filt.length){ list.innerHTML=''; if(empty)empty.style.display='block'; return; }
+  if(empty)empty.style.display='none';
+  list.innerHTML = filt.map(s=>{
+    const start = new Date(s.started_at);
+    const end = s.ended_at ? new Date(s.ended_at) : null;
+    const dur = end ? Math.round((end-start)/60000) : '...';
+    return '<div onclick="selectOlvidoSession('+s.id+')" style="cursor:pointer;padding:10px;border-radius:10px;border:1px solid '+(_olvidosSelected===s.id?'#f59e0b':'var(--border)')+';background:'+(_olvidosSelected===s.id?'rgba(245,158,11,0.1)':'var(--bg3)')+'"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1"><div style="font-weight:600;font-size:13px">⚠️ '+escapeHtml(s.usuario)+'</div><div style="font-size:11px;color:var(--text4);margin-top:2px">'+start.toLocaleDateString('en-US')+' · Detectado a las '+start.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+'</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:700;color:#f59e0b">'+(typeof dur==='number'?(Math.floor(dur/60)+'h '+(dur%60)+'m'):'⏱')+'</div></div></div></div>';
+  }).join('');
+}
+
+async function selectOlvidoSession(id){
+  _olvidosSelected = id;
+  renderOlvidosSessions();
+  const s = _olvidosSessions.find(x=>x.id===id);
+  if(!s) return;
+  document.getElementById('olvidos-detail-empty').style.display='none';
+  document.getElementById('olvidos-detail').style.display='flex';
+  document.getElementById('od-emp').textContent = s.usuario;
+  const start = new Date(s.started_at);
+  document.getElementById('od-meta').textContent = start.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}) + ' · Detectado a las ' + start.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  const tracks = await loadSessionTracks(id);
+  let suggested = null;
+  if(tracks.length){
+    suggested = new Date(tracks[tracks.length-1].timestamp);
+    for(let i=tracks.length-1; i>=0; i--){
+      const ts = new Date(tracks[i].timestamp);
+      const lastTs = new Date(tracks[tracks.length-1].timestamp);
+      if((lastTs - ts) >= 30*60*1000){ suggested = lastTs; break; }
+    }
+  }
+  if(suggested){
+    const sH = String(suggested.getHours()).padStart(2,'0');
+    const sM = String(suggested.getMinutes()).padStart(2,'0');
+    document.getElementById('od-suggested').textContent = sH+':'+sM;
+    document.getElementById('od-end-time').value = sH+':'+sM;
+  }
+  drawSessionMap('od-map', tracks, _odMap, function(m,layer){ _odMap=m; _odLayer=layer; }, 'olvidos');
+  const projectsCoords = (window.proyectos||[]).map(p=>({lat:p.lat,lng:p.lng})).filter(p=>p.lat&&p.lng);
+  const clientesCoords = (window._clientesFrecuentes||[]).filter(c=>c.active!==false);
+  const stops = detectStops(tracks, projectsCoords, clientesCoords);
+  for(const st of stops){ st.placeName = await reverseGeocode(st.lat, st.lng); }
+  renderStops('od-stops', stops);
+}
+
+async function acceptMissedSuggestion(){
+  if(!_olvidosSelected) return;
+  const timeStr = document.getElementById('od-end-time').value;
+  if(!timeStr){ toast('Ingresa una hora','ko'); return; }
+  const s = _olvidosSessions.find(x=>x.id===_olvidosSelected);
+  if(!s) return;
+  const m = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+  if(!m){ toast('Formato HH:MM','ko'); return; }
+  const endTs = new Date(s.started_at);
+  endTs.setHours(parseInt(m[1],10), parseInt(m[2],10), 0, 0);
+  const totalMin = Math.max(0, Math.round((endTs - new Date(s.started_at))/60000));
+  if(!confirm('Cerrar jornada con hora '+timeStr+'?\nDuración: '+Math.floor(totalMin/60)+'h '+(totalMin%60)+'m')) return;
+  await updateSessionStatus(s.id, {approval_status:'APPROVED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), approved_end_time: endTs.toISOString(), total_minutes: totalMin, admin_note: 'Cerrado desde Posibles Olvidos'});
+  toast('Jornada cerrada','ok');
+  await loadFieldSessions();
+  renderOlvidosSessions();
+  document.getElementById('olvidos-detail').style.display='none';
+  document.getElementById('olvidos-detail-empty').style.display='block';
+}
+
+async function dismissMissedSession(){
+  if(!_olvidosSelected) return;
+  if(!confirm('Descartar este caso? (no se descontarán horas, se asume trabajo legítimo)')) return;
+  await updateSessionStatus(_olvidosSelected, {approval_status:'REJECTED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), admin_note: 'Descartado - trabajo legítimo'});
+  toast('Caso descartado','ok');
+  await loadFieldSessions();
+  renderOlvidosSessions();
+  document.getElementById('olvidos-detail').style.display='none';
+  document.getElementById('olvidos-detail-empty').style.display='block';
+}
+
+// ── Render lista Trabajo de Campo ──
+function renderCampoSessions(){
+  const status = document.getElementById('campo-status')?.value || 'PENDING';
+  const mode = document.getElementById('campo-mode')?.value || 'daily';
+  const list = document.getElementById('campo-list');
+  const empty = document.getElementById('campo-empty');
+  if(!list) return;
+  let filt = _campoSessions;
+  if(status !== 'ALL') filt = filt.filter(s=>s.approval_status===status);
+  if(mode === 'weekly'){
+    const now = new Date();
+    const wk = new Date(now.getTime() - 7*24*60*60*1000);
+    filt = filt.filter(s => new Date(s.started_at) >= wk);
+  }
+  if(!filt.length){ list.innerHTML=''; if(empty)empty.style.display='block'; return; }
+  if(empty)empty.style.display='none';
+  // Botón aprobar masiva si hay >1 pendiente y mode=weekly
+  const massBtn = (status==='PENDING' && mode==='weekly' && filt.length>1)
+    ? '<button onclick="approveAllPendingThisWeek()" style="width:100%;margin-bottom:10px;padding:9px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">✓ Aprobar TODAS ('+filt.length+') pendientes de esta semana</button>'
+    : '';
+  list.innerHTML = massBtn + filt.map(s=>{
+    const start = new Date(s.started_at);
+    const end = s.ended_at ? new Date(s.ended_at) : null;
+    const dur = end ? Math.round((end-start)/60000) : '...';
+    const stClr = s.approval_status==='PENDING' ? '#f59e0b' : s.approval_status==='APPROVED' ? '#10b981' : s.approval_status==='AUTO_APPROVED' ? '#06b6d4' : '#ef4444';
+    const stLbl = s.approval_status==='PENDING' ? 'Pendiente' : s.approval_status==='APPROVED' ? '✓ Aprobada' : s.approval_status==='AUTO_APPROVED' ? '⚡ Auto' : '✗ Rechazada';
+    return '<div onclick="selectCampoSession('+s.id+')" style="cursor:pointer;padding:10px;border-radius:10px;border:1px solid '+(_campoSelected===s.id?'#6366f1':'var(--border)')+';background:'+(_campoSelected===s.id?'rgba(99,102,241,0.1)':'var(--bg3)')+'"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">'+escapeHtml(s.usuario)+'</div><div style="font-size:11px;color:var(--text4);margin-top:2px">'+start.toLocaleDateString('en-US')+' · '+start.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+(end?' → '+end.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):' (en curso)')+'</div></div><div style="text-align:right"><div style="font-size:11px;color:'+stClr+';font-weight:600">'+stLbl+'</div><div style="font-size:14px;font-weight:700;margin-top:2px">'+(typeof dur==='number'?(Math.floor(dur/60)+'h '+(dur%60)+'m'):'⏱')+'</div></div></div></div>';
+  }).join('');
+}
+
+async function selectCampoSession(id){
+  _campoSelected = id;
+  renderCampoSessions();
+  const s = _campoSessions.find(x=>x.id===id);
+  if(!s) return;
+  document.getElementById('campo-detail-empty').style.display='none';
+  document.getElementById('campo-detail').style.display='flex';
+  document.getElementById('cd-emp').textContent = s.usuario;
+  const start = new Date(s.started_at);
+  const end = s.ended_at ? new Date(s.ended_at) : null;
+  const dur = end ? Math.round((end-start)/60000) : 0;
+  document.getElementById('cd-meta').textContent = start.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}) + ' · ' + start.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + (end?' → '+end.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):'');
+  document.getElementById('cd-total').textContent = end ? Math.floor(dur/60)+'h '+(dur%60)+'m' : '...';
+  const tracks = await loadSessionTracks(id);
+  drawSessionMap('cd-map', tracks, _cdMap, function(m,layer){ _cdMap=m; _cdLayer=layer; }, 'campo');
+  const projectsCoords = (window.proyectos||[]).map(p=>({lat:p.lat,lng:p.lng})).filter(p=>p.lat&&p.lng);
+  const clientesCoords = (window._clientesFrecuentes||[]).filter(c=>c.active!==false);
+  const stops = detectStops(tracks, projectsCoords, clientesCoords);
+  // Marcar has_red_stop si la sesión tiene >=1 parada roja
+  const hasRed = stops.some(st => st.category === 'red');
+  if(hasRed !== s.has_red_stop){
+    try {
+      await fetch(supabaseUrl+'/rest/v1/field_sessions?id=eq.'+s.id,{method:'PATCH',headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({has_red_stop:hasRed})});
+      s.has_red_stop = hasRed;
+    } catch(_){}
+  }
+  for(const st of stops){ st.placeName = await reverseGeocode(st.lat, st.lng); }
+  renderStops('cd-stops', stops);
+}
+
+// ════════════════════════════════════════════════════════════════
+// NOTIFICACIONES — Banner + Notification API
+// ════════════════════════════════════════════════════════════════
+let _lastNotifiedSessionIds = new Set();
+let _adminBannerTimer = null;
+
+async function checkNewSessionsAndNotify(){
+  const previousIds = new Set(_lastNotifiedSessionIds);
+  const allSessions = [..._campoSessions, ..._olvidosSessions];
+  const pendingNew = allSessions.filter(s => s.approval_status === 'PENDING' && !previousIds.has(s.id));
+  if(!pendingNew.length) return;
+
+  // Filtramos a las que NO han sido notificadas todavía (admin_notified=false)
+  const reallyNew = pendingNew.filter(s => !s.admin_notified);
+  if(!reallyNew.length){
+    // Solo actualizar set
+    pendingNew.forEach(s => _lastNotifiedSessionIds.add(s.id));
+    return;
+  }
+
+  // Mostrar banner en portal
+  const campoCnt = reallyNew.filter(s=>s.trigger_mode==='BUTTON_PRESSED').length;
+  const olvidoCnt = reallyNew.filter(s=>s.trigger_mode==='AUTO_DETECTED').length;
+  const msgParts = [];
+  if(campoCnt) msgParts.push(campoCnt+' nueva'+(campoCnt>1?'s':'')+' sesión'+(campoCnt>1?'es':'')+' de Trabajo de Campo');
+  if(olvidoCnt) msgParts.push(olvidoCnt+' posible'+(olvidoCnt>1?'s':'')+' olvido'+(olvidoCnt>1?'s':''));
+  const msg = msgParts.join(' · ');
+
+  const banner = document.getElementById('admin-notify-banner');
+  if(banner){
+    document.getElementById('adm-bann-msg').textContent = msg;
+    banner.style.display='block';
+    if(_adminBannerTimer) clearTimeout(_adminBannerTimer);
+    _adminBannerTimer = setTimeout(()=>{ banner.style.display='none'; }, 10000);
+  }
+
+  // Push notification del navegador (si tiene permiso)
+  try {
+    if(typeof Notification !== 'undefined' && Notification.permission === 'granted'){
+      new Notification('Wylog · Nuevas sesiones', {
+        body: msg,
+        icon: '/favicon.ico',
+        tag: 'wylog-new-sessions'
+      });
+    }
+  } catch(_){}
+
+  // Marcar como notificadas en DB
+  for(const s of reallyNew){
+    try {
+      await fetch(supabaseUrl+'/rest/v1/field_sessions?id=eq.'+s.id,{
+        method:'PATCH',
+        headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body: JSON.stringify({admin_notified:true})
+      });
+      _lastNotifiedSessionIds.add(s.id);
+    } catch(_){}
+  }
+}
+
+function dismissAdminBanner(){
+  const banner = document.getElementById('admin-notify-banner');
+  if(banner) banner.style.display='none';
+  // Si hay sesiones pendientes, llevar al admin a la ventana correspondiente
+  const campoP = _campoSessions.filter(s=>s.approval_status==='PENDING').length;
+  const olvidoP = _olvidosSessions.filter(s=>s.approval_status==='PENDING').length;
+  if(olvidoP > campoP) nav('olvidos');
+  else if(campoP > 0) nav('campo');
+}
+
+// Pedir permiso al cargar
+async function requestNotificationPermission(){
+  try {
+    if(typeof Notification !== 'undefined' && Notification.permission === 'default'){
+      await Notification.requestPermission();
+    }
+  } catch(_){}
+}
+
+// Banner inicial al entrar al portal si hay pendientes
+function showInitialPendingBanner(){
+  const campoP = _campoSessions.filter(s=>s.approval_status==='PENDING').length;
+  const olvidoP = _olvidosSessions.filter(s=>s.approval_status==='PENDING').length;
+  if(!campoP && !olvidoP) return;
+  const banner = document.getElementById('admin-notify-banner');
+  if(!banner) return;
+  document.getElementById('adm-bann-title').textContent = 'Tienes sesiones pendientes';
+  document.getElementById('adm-bann-msg').textContent =
+    (campoP>0?campoP+' Trabajo de Campo':'') +
+    (campoP>0&&olvidoP>0?' · ':'') +
+    (olvidoP>0?olvidoP+' Posibles Olvidos':'');
+  banner.style.display='block';
+  if(_adminBannerTimer) clearTimeout(_adminBannerTimer);
+  _adminBannerTimer = setTimeout(()=>{ banner.style.display='none'; }, 8000);
+}
+
+// ════════════════════════════════════════════════════════════════
+// BOOTSTRAP — extender nav() y arrancar timers
+// ════════════════════════════════════════════════════════════════
+(function(){
+  const _origNav = window.nav;
+  if(typeof _origNav === 'function'){
+    window.nav = function(p){
+      _origNav.apply(this, arguments);
+      if(p==='campo'){ loadFieldSessions().then(renderCampoSessions); }
+      if(p==='olvidos'){ loadFieldSessions().then(renderOlvidosSessions); }
+      if(p==='confianza'){ renderConfianza(); }
+      if(p==='clientes-frec'){ loadClientesFrecuentes().then(renderClientesFrecuentes); }
+    };
+  }
+})();
+
+// Carga inicial al cargar el portal
+(async function bootFieldTracking(){
+  await new Promise(r => setTimeout(r, 2000));
+  try {
+    await loadFieldSessions();
+    await loadClientesFrecuentes();
+    requestNotificationPermission();
+    showInitialPendingBanner();
+    // Inicializar set para no notificar las sesiones existentes como "nuevas"
+    [..._campoSessions, ..._olvidosSessions].forEach(s => _lastNotifiedSessionIds.add(s.id));
+  } catch(_){}
+})();
+
+// Polling cada 60s para detectar nuevas sesiones + ejecutar auto-approve check
+setInterval(async () => {
+  try {
+    await loadFieldSessions();
+    await loadClientesFrecuentes();
+    await checkNewSessionsAndNotify();
+  } catch(_){}
+}, 60000);
+
+// Auto-approve cada hora (solo dispara la función SQL si hay sesiones >24h)
+setInterval(async () => {
+  try {
+    if(supabaseUrl && supabaseKey){
+      await fetch(supabaseUrl+'/rest/v1/rpc/auto_approve_field_sessions',{
+        method:'POST',
+        headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json'},
+        body: '{}'
+      });
+    }
+  } catch(_){}
+}, 60*60*1000);
+
+
+
+// ════════════════════════════════════════════════════════════════
+// REVERSE GEOCODING — Sistema anti-saturación de 6 capas
+// ════════════════════════════════════════════════════════════════
+// Capa 1: Caché compartido en Supabase (todos los admins comparten)
+// Capa 2: Caché localStorage (acceso inmediato sin red)
+// Capa 3: Multi-provider (Mapbox primario, fallback Nominatim)
+// Capa 4: Throttle queue + dedup de coords cercanas
+// Capa 5: Pre-fetch en background al cargar lista
+// Capa 6: Botón "Refresh names" manual para casos excepcionales
+// ════════════════════════════════════════════════════════════════
+
+const _GEO_LS_KEY = 'wylog_geo_cache_v2';
+const _GEO_LS_TTL = 30*24*60*60*1000;
+const _GEO_DEDUP_DECIMALS = 4; // ~11m precision
+let _geoQueue = Promise.resolve();
+let _geoLastReqAt = 0;
+let _geoStats = {hits_cache_local:0, hits_cache_supabase:0, requests_real:0, errors:0};
+let _geoSettings = {
+  provider: 'mapbox',
+  mapbox_key: '',
+  locationiq_key: '',
+  geoapify_key: '',
+  opencage_key: '',
+  max_queue: 50,
+  dedup_decimals: 4
+};
+
+function _roundCoord(c, d){
+  d = d == null ? _GEO_DEDUP_DECIMALS : d;
+  const m = Math.pow(10, d);
+  return Math.round(c * m) / m;
+}
+
+// ── Caché localStorage (rápido, por dispositivo) ──
+function _geoLsRead(){
+  try { return JSON.parse(localStorage.getItem(_GEO_LS_KEY)||'{}'); } catch(_){ return {}; }
+}
+function _geoLsWrite(c){
+  try { localStorage.setItem(_GEO_LS_KEY, JSON.stringify(c)); } catch(_){}
+}
+function _geoLsHit(latR, lngR){
+  const c = _geoLsRead();
+  const key = latR+','+lngR;
+  const v = c[key];
+  if(v && v.t && (Date.now()-v.t) < _GEO_LS_TTL) return v.n;
+  return undefined;
+}
+function _geoLsSave(latR, lngR, name){
+  const c = _geoLsRead();
+  c[latR+','+lngR] = {n: name, t: Date.now()};
+  _geoLsWrite(c);
+}
+
+// ── Caché Supabase compartido ──
+async function _geoSupabaseHit(latR, lngR){
+  if(!supabaseUrl || !supabaseKey) return undefined;
+  try {
+    const url = supabaseUrl+'/rest/v1/geocode_cache?lat_round=eq.'+latR+'&lng_round=eq.'+lngR+'&select=place_name,id,hit_count';
+    const res = await fetch(url, {headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey}});
+    if(!res.ok) return undefined;
+    const rows = await res.json();
+    if(!rows.length) return undefined;
+    // Bump hit_count y last_used_at
+    fetch(supabaseUrl+'/rest/v1/geocode_cache?id=eq.'+rows[0].id,{
+      method:'PATCH',
+      headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body: JSON.stringify({hit_count: (rows[0].hit_count||1)+1, last_used_at: new Date().toISOString()})
+    }).catch(()=>{});
+    return rows[0].place_name; // puede ser null si fue una request fallida cacheada
+  } catch(_){ return undefined; }
+}
+async function _geoSupabaseSave(latR, lngR, name, provider){
+  if(!supabaseUrl || !supabaseKey) return;
+  try {
+    await fetch(supabaseUrl+'/rest/v1/geocode_cache',{
+      method:'POST',
+      headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify({
+        lat_round: latR,
+        lng_round: lngR,
+        place_name: name || null,
+        provider: provider || 'unknown',
+        resolved: !!name
+      })
+    });
+  } catch(_){}
+}
+
+// ── PROVIDERS ──
+async function _geoProviderMapbox(lat, lng, key){
+  if(!key) return null;
+  const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/'+lng+','+lat+'.json?access_token='+encodeURIComponent(key)+'&limit=1&types=poi,address';
+  const res = await fetch(url);
+  if(!res.ok) return null;
+  const data = await res.json();
+  if(data.features && data.features.length){
+    const f = data.features[0];
+    return f.text || f.place_name?.split(',')[0] || null;
+  }
+  return null;
+}
+async function _geoProviderLocationIQ(lat, lng, key){
+  if(!key) return null;
+  const url = 'https://us1.locationiq.com/v1/reverse.php?key='+encodeURIComponent(key)+'&lat='+lat+'&lon='+lng+'&format=json&zoom=18';
+  const res = await fetch(url);
+  if(!res.ok) return null;
+  const data = await res.json();
+  const a = data.address || {};
+  return data.name || a.shop || a.amenity || a.office || a.building
+    || ((a.road||'')+(a.house_number?' '+a.house_number:''))
+    || (data.display_name?data.display_name.split(',').slice(0,2).join(', '):null);
+}
+async function _geoProviderGeoapify(lat, lng, key){
+  if(!key) return null;
+  const url = 'https://api.geoapify.com/v1/geocode/reverse?lat='+lat+'&lon='+lng+'&format=json&apiKey='+encodeURIComponent(key);
+  const res = await fetch(url);
+  if(!res.ok) return null;
+  const data = await res.json();
+  const r = data.results && data.results[0];
+  if(!r) return null;
+  return r.name || r.address_line1 || r.formatted?.split(',').slice(0,2).join(', ') || null;
+}
+async function _geoProviderOpenCage(lat, lng, key){
+  if(!key) return null;
+  const url = 'https://api.opencagedata.com/geocode/v1/json?q='+lat+'+'+lng+'&key='+encodeURIComponent(key)+'&limit=1&no_annotations=1';
+  const res = await fetch(url);
+  if(!res.ok) return null;
+  const data = await res.json();
+  const r = data.results && data.results[0];
+  if(!r) return null;
+  const c = r.components || {};
+  return c.shop || c.amenity || c.building || (c.road?(c.road+(c.house_number?' '+c.house_number:'')):null) || r.formatted?.split(',').slice(0,2).join(', ');
+}
+async function _geoProviderPhoton(lat, lng){
+  const url = 'https://photon.komoot.io/reverse?lat='+lat+'&lon='+lng;
+  const res = await fetch(url);
+  if(!res.ok) return null;
+  const data = await res.json();
+  const f = data.features && data.features[0];
+  if(!f) return null;
+  const p = f.properties || {};
+  return p.name || ((p.street||'')+(p.housenumber?' '+p.housenumber:'')) || (p.city?p.city+(p.country?', '+p.country:''):null);
+}
+async function _geoProviderNominatim(lat, lng){
+  const url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&zoom=18&addressdetails=1';
+  const res = await fetch(url, {headers:{'Accept':'application/json'}});
+  if(!res.ok) return null;
+  const data = await res.json();
+  const a = data.address || {};
+  return data.name
+    || a.shop || a.amenity || a.office || a.building
+    || ((a.road||'')+(a.house_number?' '+a.house_number:''))
+    || (data.display_name?data.display_name.split(',').slice(0,2).join(', '):null);
+}
+
+async function _callProvider(lat, lng){
+  const p = _geoSettings.provider || 'mapbox';
+  try {
+    let r = null;
+    if(p === 'mapbox' && _geoSettings.mapbox_key){
+      r = await _geoProviderMapbox(lat, lng, _geoSettings.mapbox_key);
+      if(r != null) return {name:r, provider:'mapbox'};
+    }
+    if(p === 'locationiq' && _geoSettings.locationiq_key){
+      r = await _geoProviderLocationIQ(lat, lng, _geoSettings.locationiq_key);
+      if(r != null) return {name:r, provider:'locationiq'};
+    }
+    if(p === 'geoapify' && _geoSettings.geoapify_key){
+      r = await _geoProviderGeoapify(lat, lng, _geoSettings.geoapify_key);
+      if(r != null) return {name:r, provider:'geoapify'};
+    }
+    if(p === 'opencage' && _geoSettings.opencage_key){
+      r = await _geoProviderOpenCage(lat, lng, _geoSettings.opencage_key);
+      if(r != null) return {name:r, provider:'opencage'};
+    }
+    if(p === 'photon'){
+      r = await _geoProviderPhoton(lat, lng);
+      if(r != null) return {name:r, provider:'photon'};
+    }
+    // Fallback siempre: Nominatim (sin key)
+    r = await _geoProviderNominatim(lat, lng);
+    if(r != null) return {name:r, provider:'nominatim'};
+  } catch(e){
+    _geoStats.errors++;
+    console.warn('[Geocode] Provider error:', e.message);
+  }
+  return {name:null, provider:'failed'};
+}
+
+// ── reverseGeocode CON CASCADA DE 6 CAPAS ──
+async function reverseGeocode(lat, lng){
+  const latR = _roundCoord(lat).toFixed(_GEO_DEDUP_DECIMALS);
+  const lngR = _roundCoord(lng).toFixed(_GEO_DEDUP_DECIMALS);
+
+  // Capa 2: caché localStorage (rápido)
+  const lsHit = _geoLsHit(latR, lngR);
+  if(lsHit !== undefined){
+    _geoStats.hits_cache_local++;
+    return lsHit;
+  }
+
+  // Capa 1: caché Supabase compartido
+  const sbHit = await _geoSupabaseHit(latR, lngR);
+  if(sbHit !== undefined){
+    _geoStats.hits_cache_supabase++;
+    _geoLsSave(latR, lngR, sbHit); // poblar cache local también
+    return sbHit;
+  }
+
+  // Capa 3+4: throttle queue + provider cascade
+  _geoQueue = _geoQueue.then(async ()=>{
+    // Re-check caché por si otro request en la cola ya lo resolvió
+    const lsRecheck = _geoLsHit(latR, lngR);
+    if(lsRecheck !== undefined) return lsRecheck;
+
+    const since = Date.now() - _geoLastReqAt;
+    if(since < 1100) await new Promise(r=>setTimeout(r, 1100-since));
+    _geoLastReqAt = Date.now();
+    _geoStats.requests_real++;
+
+    const result = await _callProvider(lat, lng);
+    const name = result.name;
+
+    // Guardar en ambos cachés (incluso si name es null, para no re-pedir)
+    _geoLsSave(latR, lngR, name);
+    _geoSupabaseSave(latR, lngR, name, result.provider).catch(()=>{});
+
+    return name;
+  });
+  return await _geoQueue;
+}
+
+// ── Cargar settings de geocoding al iniciar ──
+async function loadGeocodeSettings(){
+  if(!supabaseUrl || !supabaseKey) return;
+  try {
+    const res = await fetch(supabaseUrl+'/rest/v1/tracking_settings?select=key,value&key=in.(geocode_provider,mapbox_api_key,locationiq_api_key,geoapify_api_key,opencage_api_key,geocode_max_queue,geocode_dedup_decimals)',{
+      headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey}
+    });
+    if(!res.ok) return;
+    const rows = await res.json();
+    const map = {};
+    rows.forEach(r => map[r.key] = r.value);
+    _geoSettings.provider = map.geocode_provider || 'mapbox';
+    _geoSettings.mapbox_key = map.mapbox_api_key || '';
+    _geoSettings.locationiq_key = map.locationiq_api_key || '';
+    _geoSettings.geoapify_key = map.geoapify_api_key || '';
+    _geoSettings.opencage_key = map.opencage_api_key || '';
+    _geoSettings.max_queue = parseInt(map.geocode_max_queue||'50');
+    _geoSettings.dedup_decimals = parseInt(map.geocode_dedup_decimals||'4');
+    console.log('[Geocode] Settings loaded:', _geoSettings.provider, 'key:', _geoSettings.mapbox_key ? '***' : '(none)');
+  } catch(e){ console.warn('loadGeocodeSettings:',e); }
+}
+
+// ── PRE-FETCH (Capa 5): geocode paradas en background ──
+async function _prefetchPendingSessions(){
+  if(!supabaseUrl || !supabaseKey) return;
+  // Tomar las últimas 5 sesiones PENDING para pre-fetch
+  const pending = [..._campoSessions, ..._olvidosSessions]
+    .filter(s => s.approval_status === 'PENDING' && s.ended_at)
+    .slice(0, 5);
+  for(const s of pending){
+    try {
+      const tracks = await loadSessionTracks(s.id);
+      if(!tracks.length) continue;
+      const projectsCoords = (window.proyectos||[]).map(p=>({lat:p.lat,lng:p.lng})).filter(p=>p.lat&&p.lng);
+      const clientesCoords = (window._clientesFrecuentes||[]).filter(c=>c.active!==false);
+      const stops = detectStops(tracks, projectsCoords, clientesCoords);
+      // Dedup paradas a nivel de coords redondeadas
+      const seen = new Set();
+      const unique = [];
+      for(const st of stops){
+        const k = _roundCoord(st.lat).toFixed(_GEO_DEDUP_DECIMALS)+','+_roundCoord(st.lng).toFixed(_GEO_DEDUP_DECIMALS);
+        if(seen.has(k)) continue;
+        seen.add(k);
+        unique.push(st);
+      }
+      // Disparar geocoding en bg sin esperar
+      unique.forEach(st => { reverseGeocode(st.lat, st.lng).catch(()=>{}); });
+    } catch(_){}
+  }
+}
+
+// ── REFRESH NAMES manual ──
+async function refreshSessionNames(sessionId){
+  if(!sessionId) return;
+  toast('Actualizando nombres...','ok');
+  // Borrar caché local de las coords de esta sesión y re-pedir
+  const tracks = await loadSessionTracks(sessionId);
+  const projectsCoords = (window.proyectos||[]).map(p=>({lat:p.lat,lng:p.lng})).filter(p=>p.lat&&p.lng);
+  const clientesCoords = (window._clientesFrecuentes||[]).filter(c=>c.active!==false);
+  const stops = detectStops(tracks, projectsCoords, clientesCoords);
+  const c = _geoLsRead();
+  for(const st of stops){
+    const latR = _roundCoord(st.lat).toFixed(_GEO_DEDUP_DECIMALS);
+    const lngR = _roundCoord(st.lng).toFixed(_GEO_DEDUP_DECIMALS);
+    delete c[latR+','+lngR];
+  }
+  _geoLsWrite(c);
+  // Re-renderizar la sesión
+  if(_campoSelected === sessionId) selectCampoSession(sessionId);
+  if(_olvidosSelected === sessionId) selectOlvidoSession(sessionId);
+}
+
+// ── Ver estadísticas del caché ──
+async function getGeocodeCacheStats(){
+  if(!supabaseUrl || !supabaseKey) return null;
+  try {
+    const res = await fetch(supabaseUrl+'/rest/v1/rpc/get_geocode_stats',{
+      method:'POST',
+      headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json'},
+      body: '{}'
+    });
+    if(res.ok) return await res.json();
+  } catch(_){}
+  return null;
+}
+
+// Cargar settings al inicio
+setTimeout(()=>{ loadGeocodeSettings(); }, 1500);
+// Pre-fetch periódico (cada 2 min) para que las sesiones nuevas tengan nombres listos
+
+// ── UI Settings de Geocoding ──
+function _updateGeocodeKeyUI(){
+  const sel = document.getElementById('geocode-provider');
+  const wrap = document.getElementById('geocode-key-wrap');
+  const lbl = document.getElementById('geocode-key-label');
+  const input = document.getElementById('geocode-key-input');
+  const link = document.getElementById('geocode-key-link');
+  if(!sel || !wrap) return;
+  const p = sel.value;
+  const cfg = {
+    mapbox: {label:'Mapbox API key', link:'https://account.mapbox.com/access-tokens/', val:_geoSettings.mapbox_key},
+    locationiq: {label:'LocationIQ key', link:'https://locationiq.com/register', val:_geoSettings.locationiq_key},
+    geoapify: {label:'Geoapify key', link:'https://www.geoapify.com/get-started-with-maps-api', val:_geoSettings.geoapify_key},
+    opencage: {label:'OpenCage key', link:'https://opencagedata.com/users/sign_up', val:_geoSettings.opencage_key},
+    photon: {label:null, link:null, val:''},
+    nominatim: {label:null, link:null, val:''}
+  };
+  const c = cfg[p] || cfg.mapbox;
+  if(c.label){
+    wrap.style.display='block';
+    lbl.textContent = c.label;
+    if(link) link.href = c.link;
+    input.value = c.val || '';
+  } else {
+    wrap.style.display='none';
+  }
+}
+
+async function saveGeocodeSettings(){
+  const provider = document.getElementById('geocode-provider').value;
+  const key = (document.getElementById('geocode-key-input').value||'').trim();
+  if(!supabaseUrl || !supabaseKey){ toast('Sin conexión a Supabase','ko'); return; }
+  const updates = [{key:'geocode_provider', value:provider}];
+  if(provider === 'mapbox') updates.push({key:'mapbox_api_key', value:key});
+  else if(provider === 'locationiq') updates.push({key:'locationiq_api_key', value:key});
+  else if(provider === 'geoapify') updates.push({key:'geoapify_api_key', value:key});
+  else if(provider === 'opencage') updates.push({key:'opencage_api_key', value:key});
+  try {
+    for(const u of updates){
+      await fetch(supabaseUrl+'/rest/v1/tracking_settings?key=eq.'+encodeURIComponent(u.key),{
+        method:'PATCH',
+        headers:{apikey:supabaseKey,Authorization:'Bearer '+supabaseKey,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body: JSON.stringify({value: u.value, updated_at: new Date().toISOString()})
+      });
+    }
+    await loadGeocodeSettings();
+    toast('✓ Settings guardados','ok');
+  } catch(e){ toast('Error: '+e.message,'ko'); }
+}
+
+async function refreshGeocodeStats(){
+  const el = document.getElementById('geocode-stats');
+  if(!el) return;
+  el.style.display='block';
+  el.innerHTML='Cargando...';
+  const stats = await getGeocodeCacheStats();
+  if(!stats){ el.innerHTML='<span style="color:#ef4444">No se pudo cargar</span>'; return; }
+  const total = stats.total_entries||0;
+  const hits = stats.total_hits||0;
+  const saved = stats.requests_saved||0;
+  const pct = total ? Math.round((saved / Math.max(hits,1))*100) : 0;
+  let providersHtml = '';
+  if(stats.by_provider){
+    providersHtml = Object.entries(stats.by_provider).map(([p,c])=>'<span style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:10px">'+p+': '+c+'</span>').join(' ');
+  }
+  el.innerHTML = '<div style="font-weight:600;color:#10b981;margin-bottom:6px">📈 Estadísticas del caché compartido</div>'
+    +'<div>• Lugares cacheados: <b>'+total+'</b></div>'
+    +'<div>• Total accesos al caché: <b>'+hits+'</b></div>'
+    +'<div>• Requests ahorradas: <b style="color:#10b981">'+saved+'</b> ('+pct+'%)</div>'
+    +'<div>• Esta sesión: <b>'+(_geoStats.hits_cache_local+_geoStats.hits_cache_supabase)+'</b> hits cache · <b>'+_geoStats.requests_real+'</b> requests reales</div>'
+    +(providersHtml?'<div style="margin-top:6px">Proveedores: '+providersHtml+'</div>':'');
+}
+
+// Auto-init UI cuando el admin entra a Confianza
+(function(){
+  const _origRender = window.renderConfianza;
+  if(typeof _origRender === 'function'){
+    window.renderConfianza = async function(){
+      await _origRender.apply(this, arguments);
+      // Setear UI de geocoding
+      const sel = document.getElementById('geocode-provider');
+      if(sel){
+        sel.value = _geoSettings.provider || 'mapbox';
+        sel.onchange = _updateGeocodeKeyUI;
+        _updateGeocodeKeyUI();
+      }
+    };
+  }
+})();
+
+
+// ── Cambiar rango de fechas (paginación temporal) ──
+async function changeFieldSessionsRange(days){
+  window._fieldSessionsDays = parseInt(days)||30;
+  toast('Cargando rango de '+days+' días...','ok');
+  await loadFieldSessions();
+  renderCampoSessions();
+  if(typeof renderOlvidosSessions === 'function') renderOlvidosSessions();
+}
+
+// ── Cleanup de mapas Leaflet al cambiar de página ──
+(function(){
+  const _origNav = window.nav;
+  if(typeof _origNav === 'function'){
+    window.nav = function(p){
+      // Destruir mapas activos al cambiar de página para liberar memoria
+      try {
+        if(window._cdMap && p!=='campo'){ _cdMap.remove(); _cdMap=null; }
+        if(window._odMap && p!=='olvidos'){ _odMap.remove(); _odMap=null; }
+        if(window._cfMap && p!=='clientes-frec'){ _cfMap.remove(); _cfMap=null; }
+      } catch(_){}
+      _origNav.apply(this, arguments);
+    };
+  }
+})();
 
 </script>
 </body>
