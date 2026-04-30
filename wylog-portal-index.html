@@ -321,6 +321,42 @@ tbody td{padding:11px 12px;font-size:12px}
 .lbox-lang-btn{position:absolute;top:14px;right:14px;background:rgba(0,214,143,0.1);border:1px solid rgba(0,214,143,0.25);border-radius:20px;padding:5px 13px;color:var(--emerald);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
 .lbox-lang-btn:hover{background:rgba(0,214,143,0.2)}
 .lbox{position:relative}
+
+/* ── Estilo global para mapas Leaflet (Trabajo de Campo, Posibles Olvidos, Clientes Frecuentes) ── */
+.leaflet-container .leaflet-control-attribution { display:none !important; }
+.leaflet-container .leaflet-control-zoom {
+  border:none !important;
+  box-shadow:none !important;
+  margin:12px !important;
+  background:transparent !important;
+}
+.leaflet-container .leaflet-control-zoom a {
+  background:rgba(15,17,23,0.55) !important;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.12) !important;
+  color:#e5e7eb !important;
+  font-size:18px !important;
+  font-weight:300 !important;
+  line-height:32px !important;
+  width:34px !important;
+  height:34px !important;
+  border-radius:10px !important;
+  margin-bottom:6px !important;
+  text-decoration:none !important;
+  transition:all .18s ease;
+  box-shadow:0 2px 10px rgba(0,0,0,0.25);
+}
+.leaflet-container .leaflet-control-zoom a:hover {
+  background:rgba(99,102,241,0.35) !important;
+  border-color:rgba(99,102,241,0.6) !important;
+  color:#fff !important;
+  transform:translateY(-1px);
+  box-shadow:0 4px 14px rgba(99,102,241,0.4);
+}
+.leaflet-container .leaflet-control-zoom a:active { transform:translateY(0); }
+.leaflet-container .leaflet-control-zoom-in { border-bottom-left-radius:10px !important; border-bottom-right-radius:10px !important; }
+.leaflet-container .leaflet-control-zoom-out { border-top-left-radius:10px !important; border-top-right-radius:10px !important; }
 </style>
 </head>
 <body>
@@ -1228,6 +1264,43 @@ tbody td{padding:11px 12px;font-size:12px}
         </div>
         <div id="geocode-stats" style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:11px;color:var(--text2);display:none;line-height:1.5"></div>
       </div>
+      <!-- ── Settings de Geofence del Taller ── -->
+      <div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <h3 style="margin:0;font-size:15px;color:#10b981">Geofence del Taller</h3>
+        </div>
+        <div style="font-size:11px;color:var(--text4);margin-bottom:12px">Define el centro y radio donde los empleados pueden marcar Entrada/Salida/Lunch. <b>Radio adaptativo</b>: el sistema agrega tolerancia automática según precisión GPS del momento (evita falsos positivos sin permitir marcajes desde la calle).</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:10px;color:var(--text4);display:block;margin-bottom:3px">Latitud</label>
+            <input id="gf-lat" type="number" step="any" placeholder="33.925806" style="width:100%;padding:7px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:monospace;font-size:11px"/>
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--text4);display:block;margin-bottom:3px">Longitud</label>
+            <input id="gf-lng" type="number" step="any" placeholder="-118.375936" style="width:100%;padding:7px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:monospace;font-size:11px"/>
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--text4);display:block;margin-bottom:3px">Radio estricto (m)</label>
+            <input id="gf-radius" type="number" min="5" max="200" placeholder="15" style="width:100%;padding:7px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:11px"/>
+          </div>
+          <div>
+            <label style="font-size:10px;color:var(--text4);display:block;margin-bottom:3px">Radio visual (m)</label>
+            <input id="gf-visual-radius" type="number" min="20" max="500" placeholder="50" style="width:100%;padding:7px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:11px"/>
+          </div>
+        </div>
+        <!-- Mapa preview -->
+        <div id="gf-preview-map" style="height:240px;width:100%;margin-top:10px;border-radius:10px;background:var(--bg3)"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--text4);margin-right:auto">💡 Click en el mapa para mover el centro · Tip: ubica el pin DENTRO del edificio, no en la fachada</span>
+          <button onclick="loadGeofenceFromSettings()" style="padding:7px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px">↻ Recargar</button>
+          <button onclick="useCoordSet1()" style="padding:7px 12px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px">📍 Hidden Hills</button>
+          <button onclick="useCoordSet2()" style="padding:7px 12px;background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px">📍 LNI Gardena</button>
+          <button onclick="saveGeofenceSettings()" style="padding:7px 14px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit;font-size:12px">💾 Guardar geofence</button>
+        </div>
+      </div>
+
+
 
       <div id="confianza-list" style="margin-top:16px;display:flex;flex-direction:column;gap:10px"></div>
     </div>
@@ -6227,7 +6300,7 @@ function renderCfMap(arr){
   if(_cfMap){ try{ _cfMap.remove(); }catch(_){} }
   let center = [33.8851, -118.2876];
   if(arr.length){ center = [arr[0].lat, arr[0].lng]; }
-  _cfMap = L.map('cf-map',{zoomControl:true}).setView(center, 12);
+  _cfMap = L.map('cf-map',{zoomControl:true, attributionControl:false}).setView(center, 12);
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(_cfMap);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:19,opacity:0.85}).addTo(_cfMap);
   arr.forEach(c=>{
@@ -6368,9 +6441,9 @@ async function drawSessionMap(mapId, tracks, existingMap, callback, kind){
   el.innerHTML = '';
   const lats = tracks.map(t=>parseFloat(t.lat)), lngs = tracks.map(t=>parseFloat(t.lng));
   const center = [(Math.min(...lats)+Math.max(...lats))/2, (Math.min(...lngs)+Math.max(...lngs))/2];
-  const map = L.map(mapId, {zoomControl:true}).setView(center, 14);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Esri',maxZoom:19}).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{attribution:'CARTO',maxZoom:19,opacity:0.85}).addTo(map);
+  const map = L.map(mapId, {zoomControl:true, attributionControl:false}).setView(center, 14);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:19,opacity:0.85}).addTo(map);
   const layer = L.layerGroup().addTo(map);
   const points = tracks.map(t=>[parseFloat(t.lat), parseFloat(t.lng)]);
   const routeColor = kind==='olvidos' ? '#f59e0b' : '#6366f1';
@@ -6404,7 +6477,6 @@ async function drawSessionMap(mapId, tracks, existingMap, callback, kind){
   if(points.length){
     try { map.fitBounds(L.latLngBounds(points).pad(0.15)); } catch(_){}
   }
-  // Forzar resize de Leaflet (a veces necesita esto si el contenedor estaba oculto)
   setTimeout(()=>{ try{ map.invalidateSize(); }catch(_){} }, 200);
   if(callback) callback(map, layer);
 }
@@ -6418,6 +6490,183 @@ function renderStops(elId, stops){
     return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border)"><div style="width:8px;height:8px;border-radius:50%;background:'+c+';flex-shrink:0"></div><div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(st.placeName||'Parada')+'</div><div style="color:var(--text4);font-size:11px;flex-shrink:0">'+st.minutes+'m</div></div>';
   }).join('');
 }
+
+// ════════════════════════════════════════════════════════════════
+// GEOFENCE DEL TALLER — Settings configurables (centro + radios)
+// ════════════════════════════════════════════════════════════════
+let _gfMap = null;
+let _gfMarker = null;
+let _gfStrictCircle = null;
+let _gfVisualCircle = null;
+let _gfCurrent = {lat: 33.925806, lng: -118.375936, radius_m: 15, visual_m: 50};
+
+async function loadGeofenceFromSettings(){
+  if(!SB_URL || !SB_KEY) return;
+  try {
+    const res = await fetch(SB_URL+'/rest/v1/tracking_settings?select=key,value&key=in.(geofence_lat,geofence_lng,geofence_radius_m,geofence_visual_radius_m)',{
+      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}
+    });
+    if(res.ok){
+      const rows = await res.json();
+      rows.forEach(r => {
+        const v = parseFloat(r.value);
+        if(isNaN(v)) return;
+        if(r.key === 'geofence_lat') _gfCurrent.lat = v;
+        else if(r.key === 'geofence_lng') _gfCurrent.lng = v;
+        else if(r.key === 'geofence_radius_m') _gfCurrent.radius_m = v;
+        else if(r.key === 'geofence_visual_radius_m') _gfCurrent.visual_m = v;
+      });
+    }
+  } catch(_){}
+  // Pintar inputs
+  const latInp = document.getElementById('gf-lat');
+  const lngInp = document.getElementById('gf-lng');
+  const radInp = document.getElementById('gf-radius');
+  const visInp = document.getElementById('gf-visual-radius');
+  if(latInp) latInp.value = _gfCurrent.lat;
+  if(lngInp) lngInp.value = _gfCurrent.lng;
+  if(radInp) radInp.value = _gfCurrent.radius_m;
+  if(visInp) visInp.value = _gfCurrent.visual_m;
+  renderGeofencePreview();
+}
+
+function renderGeofencePreview(){
+  const el = document.getElementById('gf-preview-map');
+  if(!el) return;
+  // Si el mapa no está creado o el contenedor cambió, lo recreamos
+  if(_gfMap){ try{ _gfMap.remove(); }catch(_){} _gfMap=null; }
+  _gfMap = L.map('gf-preview-map',{zoomControl:true, attributionControl:false}).setView([_gfCurrent.lat,_gfCurrent.lng], 18);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(_gfMap);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',{maxZoom:19,opacity:0.85}).addTo(_gfMap);
+
+  // Círculo visual (50m default, naranja)
+  _gfVisualCircle = L.circle([_gfCurrent.lat,_gfCurrent.lng],{
+    radius: _gfCurrent.visual_m,
+    color:'#f59e0b', fillColor:'#f59e0b', fillOpacity:0.10, weight:1, dashArray:'6 6'
+  }).bindTooltip('Radio visual ('+_gfCurrent.visual_m+'m)').addTo(_gfMap);
+
+  // Círculo estricto (15m default, verde)
+  _gfStrictCircle = L.circle([_gfCurrent.lat,_gfCurrent.lng],{
+    radius: _gfCurrent.radius_m,
+    color:'#10b981', fillColor:'#10b981', fillOpacity:0.30, weight:2
+  }).bindTooltip('Radio ESTRICTO ('+_gfCurrent.radius_m+'m)').addTo(_gfMap);
+
+  // Marcador del centro
+  _gfMarker = L.marker([_gfCurrent.lat,_gfCurrent.lng],{
+    draggable:true,
+    icon: L.divIcon({className:'gf-pin', html:'<div style="background:#10b981;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5)">⌖</div>', iconSize:[24,24], iconAnchor:[12,12]})
+  }).addTo(_gfMap);
+
+  // Drag → actualizar coords
+  _gfMarker.on('dragend', function(e){
+    const p = e.target.getLatLng();
+    _gfCurrent.lat = p.lat; _gfCurrent.lng = p.lng;
+    document.getElementById('gf-lat').value = p.lat.toFixed(6);
+    document.getElementById('gf-lng').value = p.lng.toFixed(6);
+    _updateGfCircles();
+  });
+
+  // Click en mapa → mover marcador
+  _gfMap.on('click', function(e){
+    _gfCurrent.lat = e.latlng.lat; _gfCurrent.lng = e.latlng.lng;
+    document.getElementById('gf-lat').value = e.latlng.lat.toFixed(6);
+    document.getElementById('gf-lng').value = e.latlng.lng.toFixed(6);
+    _gfMarker.setLatLng(e.latlng);
+    _updateGfCircles();
+  });
+
+  // Inputs cambiados manualmente → actualizar círculos
+  ['gf-lat','gf-lng','gf-radius','gf-visual-radius'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.oninput = ()=>{
+      const lat = parseFloat(document.getElementById('gf-lat').value);
+      const lng = parseFloat(document.getElementById('gf-lng').value);
+      const r = parseInt(document.getElementById('gf-radius').value);
+      const v = parseInt(document.getElementById('gf-visual-radius').value);
+      if(!isNaN(lat)) _gfCurrent.lat = lat;
+      if(!isNaN(lng)) _gfCurrent.lng = lng;
+      if(!isNaN(r) && r>=5 && r<=200) _gfCurrent.radius_m = r;
+      if(!isNaN(v) && v>=20 && v<=500) _gfCurrent.visual_m = v;
+      _gfMarker.setLatLng([_gfCurrent.lat,_gfCurrent.lng]);
+      _updateGfCircles();
+    };
+  });
+
+  setTimeout(()=>{ try{_gfMap.invalidateSize();}catch(_){} }, 200);
+}
+
+function _updateGfCircles(){
+  if(_gfStrictCircle){ _gfStrictCircle.setLatLng([_gfCurrent.lat,_gfCurrent.lng]).setRadius(_gfCurrent.radius_m); _gfStrictCircle.setTooltipContent('Radio ESTRICTO ('+_gfCurrent.radius_m+'m)'); }
+  if(_gfVisualCircle){ _gfVisualCircle.setLatLng([_gfCurrent.lat,_gfCurrent.lng]).setRadius(_gfCurrent.visual_m); _gfVisualCircle.setTooltipContent('Radio visual ('+_gfCurrent.visual_m+'m)'); }
+}
+
+function useCoordSet1(){
+  _gfCurrent.lat = 34.194499; _gfCurrent.lng = -118.583555;
+  document.getElementById('gf-lat').value = _gfCurrent.lat;
+  document.getElementById('gf-lng').value = _gfCurrent.lng;
+  if(_gfMap){ _gfMap.setView([_gfCurrent.lat,_gfCurrent.lng], 18); _gfMarker.setLatLng([_gfCurrent.lat,_gfCurrent.lng]); _updateGfCircles(); }
+}
+
+function useCoordSet2(){
+  _gfCurrent.lat = 33.925806; _gfCurrent.lng = -118.375936;
+  document.getElementById('gf-lat').value = _gfCurrent.lat;
+  document.getElementById('gf-lng').value = _gfCurrent.lng;
+  if(_gfMap){ _gfMap.setView([_gfCurrent.lat,_gfCurrent.lng], 18); _gfMarker.setLatLng([_gfCurrent.lat,_gfCurrent.lng]); _updateGfCircles(); }
+}
+
+async function saveGeofenceSettings(){
+  if(!SB_URL || !SB_KEY){ toast('Sin conexión a Supabase','ko'); return; }
+  const lat = parseFloat(document.getElementById('gf-lat').value);
+  const lng = parseFloat(document.getElementById('gf-lng').value);
+  const r = parseInt(document.getElementById('gf-radius').value);
+  const v = parseInt(document.getElementById('gf-visual-radius').value);
+  if(isNaN(lat) || isNaN(lng)){ toast('Lat/Lng inválidos','ko'); return; }
+  if(isNaN(r) || r<5 || r>200){ toast('Radio estricto debe ser 5-200m','ko'); return; }
+  if(isNaN(v) || v<20 || v>500){ toast('Radio visual debe ser 20-500m','ko'); return; }
+  const updates = [
+    {key:'geofence_lat', value:String(lat)},
+    {key:'geofence_lng', value:String(lng)},
+    {key:'geofence_radius_m', value:String(r)},
+    {key:'geofence_visual_radius_m', value:String(v)}
+  ];
+  let okCount = 0;
+  for(const u of updates){
+    try {
+      const res = await fetch(SB_URL+'/rest/v1/tracking_settings?key=eq.'+encodeURIComponent(u.key),{
+        method:'PATCH',
+        headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body: JSON.stringify({value:u.value, updated_at: new Date().toISOString()})
+      });
+      if(res.ok || res.status===204){ okCount++; }
+      else {
+        // Falta la fila → INSERT
+        const ins = await fetch(SB_URL+'/rest/v1/tracking_settings',{
+          method:'POST',
+          headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+          body: JSON.stringify({key:u.key, value:u.value, description:'Geofence config'})
+        });
+        if(ins.ok || ins.status===201) okCount++;
+      }
+    } catch(_){}
+  }
+  if(okCount === updates.length){
+    toast('✓ Geofence guardado · '+r+'m centrado en ('+lat.toFixed(4)+','+lng.toFixed(4)+')','ok');
+  } else {
+    toast('Guardado parcial: '+okCount+'/4 — verifica que aplicaste el SQL supabase_geofence_settings','ko');
+  }
+}
+
+// Auto-cargar geofence al entrar a Confianza
+(function(){
+  const _origRender = window.renderConfianza;
+  if(typeof _origRender === 'function'){
+    window.renderConfianza = async function(){
+      try { await _origRender.apply(this, arguments); } catch(_){}
+      // Cargar y pintar geofence settings
+      setTimeout(()=>{ try { loadGeofenceFromSettings(); } catch(_){} }, 200);
+    };
+  }
+})();
 
 </script>
 </body>
