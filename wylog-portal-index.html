@@ -6774,6 +6774,39 @@ async function confirmAdjustTime(){
   document.getElementById('campo-detail-empty').style.display='block';
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// AUTO-REFRESH del detalle de sesión abierto (cada 30s)
+// ════════════════════════════════════════════════════════════════
+// Si el admin tiene una sesión seleccionada, cada 30s recarga
+// la lista de sesiones desde Supabase y, si la sesión seleccionada
+// cambió (ej. ended_at apareció), refresca el panel derecho.
+setInterval(async () => {
+  try {
+    if(_campoSelected || _olvidosSelected){
+      const before = JSON.stringify({c:_campoSessions.find(s=>s.id===_campoSelected)?.ended_at, o:_olvidosSessions.find(s=>s.id===_olvidosSelected)?.ended_at});
+      await loadFieldSessions();
+      const after = JSON.stringify({c:_campoSessions.find(s=>s.id===_campoSelected)?.ended_at, o:_olvidosSessions.find(s=>s.id===_olvidosSelected)?.ended_at});
+      if(before !== after){
+        // Datos cambiaron — refrescar panel
+        if(_campoSelected) selectCampoSession(_campoSelected);
+        if(_olvidosSelected) selectOlvidoSession(_olvidosSelected);
+      } else {
+        // Solo refrescar contadores/lista (no romper el detalle abierto)
+        if(typeof renderCampoSessions === 'function') renderCampoSessions();
+        if(typeof renderOlvidosSessions === 'function') renderOlvidosSessions();
+      }
+    }
+  } catch(_){}
+}, 30000);
+
+// Botón "Refrescar nombres" del detalle ahora también refresca toda la sesión
+window._refreshOpenSession = async function(){
+  try { await loadFieldSessions(); } catch(_){}
+  if(_campoSelected) selectCampoSession(_campoSelected);
+  if(_olvidosSelected) selectOlvidoSession(_olvidosSelected);
+};
+
 </script>
 </body>
 </html>
