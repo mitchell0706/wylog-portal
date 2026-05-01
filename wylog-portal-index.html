@@ -1348,6 +1348,43 @@ tbody td{padding:11px 12px;font-size:12px}
       </div>
     </div>
 
+    <!-- ── Modal: Aprobar con ajuste de hora (bonito) ── -->
+    <div id="modal-adjust-time" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);backdrop-filter:blur(6px);z-index:10000;align-items:center;justify-content:center" onclick="if(event.target===this)closeAdjustTimeModal()">
+      <div style="background:linear-gradient(135deg,#0f1117 0%,#161922 100%);border:1px solid rgba(245,158,11,0.3);border-radius:16px;padding:28px;width:92%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.7),0 0 80px rgba(245,158,11,0.15)">
+        <!-- Icono y título -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+          <div style="width:54px;height:54px;border-radius:14px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:19px;color:var(--text);font-weight:700">Ajustar hora de cierre</h3>
+            <p style="margin:3px 0 0;font-size:12px;color:var(--text4)">Modifica la hora de fin de la jornada</p>
+          </div>
+        </div>
+
+        <!-- Datos de la sesión -->
+        <div id="adj-session-info" style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.7"></div>
+
+        <!-- Input de hora -->
+        <label style="display:block;font-size:11px;color:var(--text4);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Nueva hora de cierre</label>
+        <input id="adj-time-input" type="time" style="width:100%;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(245,158,11,0.3);border-radius:10px;color:var(--text);font-family:inherit;font-size:18px;font-weight:600;letter-spacing:1px;outline:none;transition:.2s" oninput="updateAdjustPreview()" onfocus="this.style.borderColor='rgba(245,158,11,0.7)';this.style.background='rgba(245,158,11,0.05)'" onblur="this.style.borderColor='rgba(245,158,11,0.3)';this.style.background='rgba(255,255,255,0.05)'"/>
+
+        <!-- Preview en vivo -->
+        <div id="adj-preview" style="margin-top:14px;padding:14px 16px;background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03));border:1px solid rgba(16,185,129,0.25);border-radius:10px;font-size:13px;color:var(--text);line-height:1.5;display:none">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" style="flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"/></svg>
+            <div id="adj-preview-text" style="flex:1"></div>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div style="display:flex;gap:10px;margin-top:22px">
+          <button onclick="closeAdjustTimeModal()" style="flex:1;padding:12px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:10px;font-weight:600;font-family:inherit;font-size:14px;cursor:pointer;transition:.15s" onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background='transparent'">Cancelar</button>
+          <button id="adj-confirm-btn" onclick="confirmAdjustTime()" disabled style="flex:2;padding:12px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:10px;font-weight:700;font-family:inherit;font-size:14px;cursor:pointer;transition:.15s;opacity:0.4">✓ Confirmar ajuste</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal agregar/editar cliente frecuente -->
     <div id="modal-cf-add" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeCfModal()">
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto">
@@ -5396,7 +5433,8 @@ async function approveCampoSession(){
   if(!_campoSelected) return;
   const s = _campoSessions.find(x=>x.id===_campoSelected);
   if(!s) return;
-  if(!confirm('Aprobar esta jornada?\n\n'+s.usuario+' · '+(s.total_minutes||'?')+' min')) return;
+  const okA = await wConfirm({title:'Aprobar jornada de campo',message:s.usuario+' · '+(s.total_minutes||'?')+' minutos',confirmLabel:'Aprobar',danger:false});
+  if(!okA) return;
   await updateSessionStatus(s.id, {approval_status:'APPROVED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), approved_end_time: s.ended_at});
   toast('Jornada aprobada','ok');
   await loadFieldSessions();
@@ -5409,26 +5447,20 @@ async function approveCampoSessionAdjust(){
   if(!_campoSelected) return;
   const s = _campoSessions.find(x=>x.id===_campoSelected);
   if(!s) return;
-  const ans = prompt('Hora de fin ajustada (HH:MM, formato 24h):');
-  if(!ans) return;
-  const m = ans.match(/^(\d{1,2}):(\d{2})$/);
-  if(!m){ toast('Formato HH:MM','ko'); return; }
-  const newEnd = new Date(s.started_at);
-  newEnd.setHours(parseInt(m[1],10), parseInt(m[2],10), 0, 0);
-  if(newEnd <= new Date(s.started_at)){ toast('Fin debe ser posterior al inicio','ko'); return; }
-  const newMin = Math.round((newEnd - new Date(s.started_at))/60000);
-  await updateSessionStatus(s.id, {approval_status:'APPROVED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), approved_end_time: newEnd.toISOString(), total_minutes: newMin});
-  toast('Aprobada con '+Math.floor(newMin/60)+'h '+(newMin%60)+'m','ok');
-  await loadFieldSessions();
-  renderCampoSessions();
-  document.getElementById('campo-detail').style.display='none';
-  document.getElementById('campo-detail-empty').style.display='block';
+  // Abre modal bonito con time picker + preview
+  openAdjustTimeModal(s);
 }
 
 async function rejectCampoSession(){
   if(!_campoSelected) return;
-  const note = prompt('Motivo del rechazo:');
-  if(note===null) return;
+  const note = await wPrompt({
+    title: 'Rechazar sesión',
+    message: 'Indica el motivo del rechazo (opcional):',
+    placeholder: 'Ej: Hora incorrecta, datos duplicados, etc.',
+    confirmLabel: 'Rechazar',
+    danger: true
+  });
+  if(note === false) return; // canceló
   await updateSessionStatus(_campoSelected, {approval_status:'REJECTED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), admin_note: note || ''});
   toast('Rechazada','ok');
   await loadFieldSessions();
@@ -5452,7 +5484,8 @@ async function approveAllPendingThisWeek(){
     return s.approval_status==='PENDING' && s.ended_at && new Date(s.started_at) >= weekAgo;
   });
   if(!eligible.length){ toast('No hay sesiones pendientes esta semana','ko'); return; }
-  if(!confirm('Aprobar TODAS las '+eligible.length+' sesiones pendientes de esta semana?\n\n⚠️ Asegúrate de haberlas revisado individualmente si tienes dudas.')) return;
+  const okM = await wConfirm({title:'Aprobar TODAS pendientes',message:'Vas a aprobar '+eligible.length+' sesiones de esta semana de un solo golpe.\n\n⚠️ Asegúrate de haberlas revisado individualmente si tienes dudas.',confirmLabel:'Aprobar todas',danger:true});
+  if(!okM) return;
   const adminUser = window.adminUser || 'admin';
   const ts = new Date().toISOString();
   let ok=0;
@@ -5528,7 +5561,8 @@ async function acceptMissedSuggestion(){
   const endTs = new Date(s.started_at);
   endTs.setHours(parseInt(m[1],10), parseInt(m[2],10), 0, 0);
   const totalMin = Math.max(0, Math.round((endTs - new Date(s.started_at))/60000));
-  if(!confirm('Cerrar jornada con hora '+timeStr+'?\nDuración: '+Math.floor(totalMin/60)+'h '+(totalMin%60)+'m')) return;
+  const okC = await wConfirm({title:'Cerrar jornada',message:'Hora de fin: '+timeStr+'\nDuración: '+Math.floor(totalMin/60)+'h '+(totalMin%60)+'m',confirmLabel:'Cerrar jornada',danger:false});
+  if(!okC) return;
   await updateSessionStatus(s.id, {approval_status:'APPROVED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), approved_end_time: endTs.toISOString(), total_minutes: totalMin, admin_note: 'Cerrado desde Posibles Olvidos'});
   toast('Jornada cerrada','ok');
   await loadFieldSessions();
@@ -5539,7 +5573,8 @@ async function acceptMissedSuggestion(){
 
 async function dismissMissedSession(){
   if(!_olvidosSelected) return;
-  if(!confirm('Descartar este caso? (no se descontarán horas, se asume trabajo legítimo)')) return;
+  const okD = await wConfirm({title:'Descartar caso',message:'Se asume que el empleado estaba trabajando legítimamente — no se descontarán horas.',confirmLabel:'Descartar',danger:false});
+  if(!okD) return;
   await updateSessionStatus(_olvidosSelected, {approval_status:'REJECTED', approved_by: window.adminUser || 'admin', approved_at: new Date().toISOString(), admin_note: 'Descartado - trabajo legítimo'});
   toast('Caso descartado','ok');
   await loadFieldSessions();
@@ -6231,7 +6266,8 @@ async function changeFieldSessionsRange(days){
 // ── Auto-approve now (reaplica función SQL) ──
 async function runAutoApproveNow(){
   if(!SB_URL || !SB_KEY){ toast('Sin conexión a Supabase','ko'); return; }
-  if(!confirm('Ejecutar auto-aprobación ahora?\n\nMarca AUTO_APPROVED las sesiones >24h de empleados de confianza sin paradas rojas.')) return;
+  const okAA = await wConfirm({title:'Ejecutar auto-aprobación',message:'Marca AUTO_APPROVED las sesiones >24h de empleados de confianza sin paradas rojas.',confirmLabel:'Ejecutar',danger:false});
+  if(!okAA) return;
   try {
     const res = await fetch(SB_URL+'/rest/v1/rpc/auto_approve_field_sessions',{
       method:'POST',
@@ -6390,7 +6426,8 @@ async function saveClienteFrecuente(){
 }
 
 async function deleteClienteFrecuente(id, nombre){
-  if(!confirm('Eliminar el lugar "'+nombre+'"?')) return;
+  const okE = await wConfirm({title:'Eliminar Cliente Frecuente',message:'Lugar: '+nombre+'\n\nLas paradas que coincidían con esta zona dejarán de marcarse en verde.',confirmLabel:'Eliminar',danger:true});
+  if(!okE) return;
   try {
     await fetch(SB_URL+'/rest/v1/clientes_frecuentes?id=eq.'+id,{method:'DELETE',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}});
     toast('Lugar eliminado','ok');
@@ -6612,84 +6649,130 @@ function editTallerLocation(id){
   document.getElementById('modal-taller-loc').style.display = 'flex';
 }
 
-async function saveTallerLocation(){
-  if(!SB_URL || !SB_KEY){ toast('Sin conexión a Supabase','ko'); return; }
-  const id = document.getElementById('tloc-edit-id').value;
-  const nombre = document.getElementById('tloc-nombre').value.trim();
-  const lat = parseFloat(document.getElementById('tloc-lat').value);
-  const lng = parseFloat(document.getElementById('tloc-lng').value);
-  const radius = parseInt(document.getElementById('tloc-radius').value)||15;
-  const visual = parseInt(document.getElementById('tloc-visual').value)||50;
-  const active = document.getElementById('tloc-active').checked;
-  if(!nombre || isNaN(lat) || isNaN(lng)){ toast('Nombre, lat y lng son requeridos','ko'); return; }
-  const body = {
-    nombre,
-    lat,
-    lng,
-    radius_m: radius,
-    visual_radius_m: visual,
-    active,
-    created_by: window.adminUser || 'admin',
-    updated_at: new Date().toISOString()
-  };
-  try {
-    let res;
-    if(id){
-      res = await fetch(SB_URL+'/rest/v1/taller_locations?id=eq.'+id,{
-        method:'PATCH',
-        headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
-        body: JSON.stringify(body)
-      });
-    } else {
-      res = await fetch(SB_URL+'/rest/v1/taller_locations',{
-        method:'POST',
-        headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
-        body: JSON.stringify(body)
-      });
-    }
-    if(res.status === 404){
-      toast('⚠️ Falta aplicar el SQL supabase_taller_locations.sql','ko');
-      return;
-    }
-    if(!res.ok && res.status !== 201 && res.status !== 204){
-      toast('Error '+res.status,'ko');
-      return;
-    }
-    toast(id?'✓ Ubicación actualizada':'✓ Ubicación agregada','ok');
-    closeTallerLocModal();
-    await loadTallerLocations();
-    renderTallerLocs();
-  } catch(e){ toast('Error: '+e.message,'ko'); }
-}
+// ════════════════════════════════════════════════════════════════
+// Modal "Aprobar con ajuste de hora" — bonito + preview en tiempo real
+// ════════════════════════════════════════════════════════════════
+let _adjSession = null;
 
-async function deleteTallerLocation(id, nombre){
-  if(!confirm('Eliminar la ubicación "'+nombre+'"?\n\nLos empleados ya no podrán marcar Entrada/Salida desde aquí.')) return;
-  try {
-    await fetch(SB_URL+'/rest/v1/taller_locations?id=eq.'+id,{
-      method:'DELETE',
-      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}
-    });
-    toast('Ubicación eliminada','ok');
-    await loadTallerLocations();
-    renderTallerLocs();
-  } catch(e){ toast('Error: '+e.message,'ko'); }
-}
-
-// Auto-cargar al entrar a Confianza
-(function(){
-  const _origRender = window.renderConfianza;
-  if(typeof _origRender === 'function'){
-    window.renderConfianza = async function(){
-      try { await _origRender.apply(this, arguments); } catch(_){}
-      setTimeout(async ()=>{
-        try {
-          await loadTallerLocations();
-          renderTallerLocs();
-        } catch(_){}
-      }, 200);
-    };
+function openAdjustTimeModal(session){
+  _adjSession = session;
+  const m = document.getElementById('modal-adjust-time');
+  if(!m) return;
+  // Datos de la sesión
+  const start = new Date(session.started_at);
+  const end = session.ended_at ? new Date(session.ended_at) : null;
+  const fmtDate = d => d.toLocaleDateString('es-US', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  const fmtHour = d => d.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+  const info = document.getElementById('adj-session-info');
+  if(info){
+    info.innerHTML =
+      '<div><b style="color:var(--text)">Empleado:</b> '+escapeHtml(session.usuario)+'</div>'
+      + '<div><b style="color:var(--text)">Día:</b> '+fmtDate(start)+'</div>'
+      + '<div><b style="color:var(--text)">Inicio:</b> '+fmtHour(start)+'</div>'
+      + (end ? '<div><b style="color:var(--text)">Fin actual:</b> '+fmtHour(end)+' <span style="color:var(--text4)">('+(session.total_minutes||0)+' min)</span></div>' : '<div style="color:#f59e0b"><b>Sin cierre todavía</b></div>');
   }
-})();
+  // Pre-poblar input con la hora actual de fin (o hora actual si no hay)
+  const inp = document.getElementById('adj-time-input');
+  if(inp){
+    const fillFrom = end || new Date();
+    const hh = String(fillFrom.getHours()).padStart(2,'0');
+    const mm = String(fillFrom.getMinutes()).padStart(2,'0');
+    inp.value = hh+':'+mm;
+  }
+  document.getElementById('adj-preview').style.display = 'none';
+  document.getElementById('adj-confirm-btn').disabled = true;
+  document.getElementById('adj-confirm-btn').style.opacity = '0.4';
+  m.style.display = 'flex';
+  setTimeout(()=>{ try{ document.getElementById('adj-time-input').focus(); }catch(_){} }, 100);
+  updateAdjustPreview(); // pintar preview con valor pre-poblado
+}
+
+function closeAdjustTimeModal(){
+  const m = document.getElementById('modal-adjust-time');
+  if(m) m.style.display = 'none';
+  _adjSession = null;
+}
+
+function updateAdjustPreview(){
+  if(!_adjSession) return;
+  const inp = document.getElementById('adj-time-input');
+  const previewEl = document.getElementById('adj-preview');
+  const previewText = document.getElementById('adj-preview-text');
+  const confirmBtn = document.getElementById('adj-confirm-btn');
+  if(!inp || !previewEl || !previewText || !confirmBtn) return;
+  const val = (inp.value||'').trim();
+  const m = val.match(/^(\d{1,2}):(\d{2})$/);
+  if(!m){
+    previewEl.style.display = 'none';
+    confirmBtn.disabled = true;
+    confirmBtn.style.opacity = '0.4';
+    return;
+  }
+  const hh = parseInt(m[1],10);
+  const mm = parseInt(m[2],10);
+  const start = new Date(_adjSession.started_at);
+  const newEnd = new Date(start);
+  newEnd.setHours(hh, mm, 0, 0);
+  // Si la hora elegida es ANTES o IGUAL al inicio, mostrar advertencia
+  if(newEnd <= start){
+    previewEl.style.display = 'block';
+    previewEl.style.background = 'linear-gradient(135deg,rgba(239,68,68,0.10),rgba(239,68,68,0.04))';
+    previewEl.style.borderColor = 'rgba(239,68,68,0.35)';
+    previewText.innerHTML = '<b style="color:#ef4444">Hora inválida:</b> el fin no puede ser anterior o igual al inicio ('+start.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true})+').';
+    confirmBtn.disabled = true;
+    confirmBtn.style.opacity = '0.4';
+    return;
+  }
+  // Calcular duración y formatear texto bonito
+  const totalMin = Math.round((newEnd - start)/60000);
+  const h = Math.floor(totalMin/60);
+  const minR = totalMin % 60;
+  const dayName = newEnd.toLocaleDateString('es-US', {weekday:'long'});
+  const dayNum = newEnd.getDate();
+  const monthName = newEnd.toLocaleDateString('es-US', {month:'long'});
+  const yearN = newEnd.getFullYear();
+  const hour12 = newEnd.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit',hour12:true});
+  // Formato natural: "Usted corregirá la hora de cierre a las 3:00 PM del día viernes, 1 de mayo 2026"
+  // Capitalizar día
+  const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+  previewEl.style.display = 'block';
+  previewEl.style.background = 'linear-gradient(135deg,rgba(16,185,129,0.10),rgba(16,185,129,0.03))';
+  previewEl.style.borderColor = 'rgba(16,185,129,0.30)';
+  previewText.innerHTML =
+    '<b style="color:#10b981">Confirmación:</b> Usted corregirá la hora de cierre a <b style="color:#fff">'+hour12+'</b> del día <b style="color:#fff">'+cap(dayName)+', '+dayNum+' de '+monthName+' '+yearN+'</b>.'
+    + '<div style="margin-top:6px;font-size:11px;color:var(--text4)">Duración total de la jornada: <b style="color:var(--text2)">'+h+'h '+(minR<10?'0':'')+minR+'m</b></div>';
+  confirmBtn.disabled = false;
+  confirmBtn.style.opacity = '1';
+}
+
+async function confirmAdjustTime(){
+  if(!_adjSession) return;
+  const inp = document.getElementById('adj-time-input');
+  if(!inp) return;
+  const val = (inp.value||'').trim();
+  const m = val.match(/^(\d{1,2}):(\d{2})$/);
+  if(!m){ toast('Formato HH:MM inválido','ko'); return; }
+  const hh = parseInt(m[1],10);
+  const mm = parseInt(m[2],10);
+  const s = _adjSession;
+  const newEnd = new Date(s.started_at);
+  newEnd.setHours(hh, mm, 0, 0);
+  if(newEnd <= new Date(s.started_at)){ toast('Fin debe ser posterior al inicio','ko'); return; }
+  const newMin = Math.round((newEnd - new Date(s.started_at))/60000);
+  await updateSessionStatus(s.id, {
+    approval_status: 'APPROVED',
+    approved_by: window.adminUser || 'admin',
+    approved_at: new Date().toISOString(),
+    approved_end_time: newEnd.toISOString(),
+    total_minutes: newMin
+  });
+  closeAdjustTimeModal();
+  toast('✓ Aprobada con '+Math.floor(newMin/60)+'h '+(newMin%60)+'m','ok');
+  await loadFieldSessions();
+  renderCampoSessions();
+  document.getElementById('campo-detail').style.display='none';
+  document.getElementById('campo-detail-empty').style.display='block';
+}
 
 </script>
 </body>
