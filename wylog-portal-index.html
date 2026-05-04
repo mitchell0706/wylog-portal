@@ -3411,95 +3411,79 @@ function exportPayrollQuickBooksCSV(){
   if(!lastPayroll.length){toast('Genera un cálculo primero','ko');return;}
   const fromVal = document.getElementById('nm-from').value;
   const toVal   = document.getElementById('nm-to').value;
-  if(!fromVal || !toVal){ toast('Selecciona el período primero','ko'); return; }
+  if(!fromVal || !toVal){ toast('Selecciona el periodo primero','ko'); return; }
 
-  // ── Helper: escape CSV value (RFC 4180) ──────────────────────────
-  // Envuelve siempre en comillas y duplica las comillas internas. Esto
-  // protege contra nombres con comas (García, Juan), saltos de línea,
-  // y comillas dentro del texto.
+  // ── Asegurar que tenemos settings de QB ──
+  if(!_qbSettings.account_name || !_qbSettings.payment_account){
+    toast('Configura QuickBooks en Confianza primero (cuentas requeridas)','ko');
+    return;
+  }
+  const acc = _qbSettings.account_name.trim();
+  const pay = _qbSettings.payment_account.trim();
+  const prefix = (_qbSettings.prefix || 'WYLOG').trim().slice(0,5).toUpperCase();
+  const company = _qbSettings.company_name || '';
+
+  // ── Helper: escape CSV (RFC 4180) ──
   const csv = v => {
-    if(v === null || v === undefined) return '""';
-    const s = String(v).replace(/"/g, '""');
-    return `"${s}"`;
+    if(v === null || v === undefined) return '';
+    let s = String(v).replace(/"/g,'""');
+    if(/^[=\+\-@]/.test(s)) s = "'"+s;
+    if(/[",\n]/.test(s)) s = '"'+s+'"';
+    return s;
   };
-
-  // ── Helper: convertir YYYY-MM-DD → MM/DD/YYYY (formato US para QB) ──
+  // ── Fecha YYYY-MM-DD → MM/DD/YYYY ──
   const usDate = iso => {
     if(!iso) return '';
     const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
     if(!m) return iso;
-    return `${m[2]}/${m[3]}/${m[1]}`;
+    return m[2]+'/'+m[3]+'/'+m[1];
   };
-
-  // ── Helper: California Daily Overtime split ──────────────────────
-  // Recibe minutos totales del DÍA, devuelve {regMin, otMin, dtMin}
-  // Reglas California Labor Code §510:
-  //   ≤480 min (8h)     → todo regular
-  //   480-720 min (12h) → 480 reg + (resto) OT
-  //   >720 min          → 480 reg + 240 OT + (resto) DT
+  // ── Fecha YYYY-MM-DD → YYMMDD ──
+  const compactDate = iso => {
+    if(!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(!m) return '';
+    return m[1].slice(-2)+m[2]+m[3];
+  };
+  // California Daily OT split
   const calOTSplit = totalMin => {
     if(totalMin <= 480) return { regMin: totalMin, otMin: 0, dtMin: 0 };
     if(totalMin <= 720) return { regMin: 480, otMin: totalMin - 480, dtMin: 0 };
     return { regMin: 480, otMin: 240, dtMin: totalMin - 720 };
   };
+  const min2hrs = m => Math.round((m / 60) * 100) / 100;
 
-  const min2hrs = m => Math.round((m / 60) * 100) / 100; // 2 decimal places
-
-  // ── Validar empleados con datos ──────────────────────────────────
+  // ── Validar empleados con datos válidos ──
   const valid = lastPayroll.filter(r => !r.sinDatos && !r.error);
-  if(!valid.length){ toast('No hay datos válidos para exportar','ko'); return; }
-
-  // Empleados sin tarifa: se EXCLUYEN del export (QB necesita rate>0
-  // para calcular el cheque correctamente). Avisamos al usuario.
+  if(!valid.length){ toast('No hay datos validos para exportar','ko'); return; }
   const sinRate = valid.filter(r => !r.rate || r.rate <= 0);
   const conRate = valid.filter(r => r.rate > 0);
   if(!conRate.length){
-    toast('Ningún empleado tiene tarifa configurada — no se puede exportar','ko');
+    toast('Ningun empleado tiene tarifa configurada','ko');
     return;
   }
 
-  // ── Calcular split por día por empleado, agrupando jornadas múltiples ──
-  // Si un empleado tiene 2 jornadas el mismo día (entrada-salida-entrada-salida),
-  // se SUMAN los minutos antes de aplicar la regla de OT diaria. Esto es crítico
-  // para que California OT se calcule sobre el total real del día.
-  const empResumen = []; // {nombre, usuario, regHrs, otHrs, dtHrs, rate, totalPay, dailyRows[]}
-
+  // ── Calcular monto por empleado con CA OT/DT ──
+  const empResumen = [];
   conRate.forEach(r => {
-    // Group by date
     const byDate = {};
     r.jornadas.forEach(j => {
-      const d = j.fecha;
-      if(!byDate[d]) byDate[d] = { totalMin: 0, jornadas: 0, proyectos: new Set() };
-      byDate[d].totalMin += j.minNeto;
-      byDate[d].jornadas++;
-      if(j.proyecto && j.proyecto !== '—') byDate[d].proyectos.add(j.proyecto);
+      if(!byDate[j.fecha]) byDate[j.fecha] = 0;
+      byDate[j.fecha] += j.minNeto;
     });
-
     let totRegMin = 0, totOtMin = 0, totDtMin = 0;
-    const dailyRows = [];
-    Object.keys(byDate).sort().forEach(d => {
-      const tot = byDate[d].totalMin;
+    Object.values(byDate).forEach(tot => {
       const sp = calOTSplit(tot);
       totRegMin += sp.regMin;
       totOtMin  += sp.otMin;
       totDtMin  += sp.dtMin;
-      dailyRows.push({
-        date: d,
-        totalMin: tot,
-        regMin: sp.regMin,
-        otMin: sp.otMin,
-        dtMin: sp.dtMin,
-        proyectos: [...byDate[d].proyectos].join(', ') || '—'
-      });
     });
-
-    // Cálculo monetario en cents (evita float drift)
     const rateCents = Math.round(r.rate * 100);
     const regCents = Math.round((totRegMin / 60) * rateCents);
     const otCents  = Math.round((totOtMin  / 60) * rateCents * 1.5);
     const dtCents  = Math.round((totDtMin  / 60) * rateCents * 2);
     const totalCents = regCents + otCents + dtCents;
-
+    if(totalCents <= 0) return; // skip empleados sin pago
     empResumen.push({
       nombre: r.nombre,
       usuario: r.usuario,
@@ -3507,120 +3491,58 @@ function exportPayrollQuickBooksCSV(){
       otHrs:  min2hrs(totOtMin),
       dtHrs:  min2hrs(totDtMin),
       rate: r.rate,
-      totalPay: totalCents / 100,
-      dailyRows
+      total: totalCents / 100
     });
   });
+  if(!empResumen.length){ toast('Sin montos a exportar (todos en cero)','ko'); return; }
 
-  // ── Construir CSV ────────────────────────────────────────────────
-  const lines = [];
-  // BOM UTF-8 va al inicio del archivo (lo agregamos al final como prefijo en el blob)
+  // ── Construir CSV en formato JE validado ──
+  const periodLabel = usDate(fromVal)+' al '+usDate(toVal);
+  const memo = (company ? 'Nomina '+company+' '+periodLabel : 'Nomina '+periodLabel);
+  const batchDate = compactDate(fromVal);
+  const journalDate = usDate(fromVal);
 
-  // Encabezado descriptivo
-  lines.push(csv('Wylog — Export para QuickBooks'));
-  lines.push([csv('Período'), csv(usDate(fromVal) + ' al ' + usDate(toVal))].join(','));
-  lines.push([csv('Generado'), csv(new Date().toLocaleString('en-US', {timeZone:'America/Los_Angeles'}))].join(','));
-  lines.push([csv('Cálculo OT/DT'), csv('California Daily (>8h OT 1.5x · >12h DT 2x)')].join(','));
-  if(sinRate.length){
-    lines.push([csv('Aviso'), csv(`${sinRate.length} empleado(s) sin tarifa fueron OMITIDOS: ${sinRate.map(r=>r.usuario).join(', ')}`)].join(','));
-  }
-  lines.push(''); // blank line
-
-  // ── BLOQUE 1: Resumen por empleado (lo que el contador escribe en QB Payroll) ──
-  lines.push(csv('=== RESUMEN POR EMPLEADO (importar a QB Payroll) ==='));
-  lines.push([
-    csv('Employee Name'),       // Nombre del empleado (debe coincidir con el de QB)
-    csv('Pay Period Start'),    // MM/DD/YYYY
-    csv('Pay Period End'),      // MM/DD/YYYY
-    csv('Regular Hours'),       // ≤8h diarias
-    csv('Overtime Hours'),      // 8-12h diarias (1.5x)
-    csv('Doubletime Hours'),    // >12h diarias (2x)
-    csv('Hourly Rate'),         // tarifa base
-    csv('Regular Pay'),
-    csv('Overtime Pay'),
-    csv('Doubletime Pay'),
-    csv('Total Pay'),
-    csv('Memo')                 // referencia interna
-  ].join(','));
-
-  let TOT_REG = 0, TOT_OT = 0, TOT_DT = 0, TOT_PAY = 0;
-  empResumen.forEach(e => {
-    const regPay = (e.regHrs * e.rate);
-    const otPay  = (e.otHrs  * e.rate * 1.5);
-    const dtPay  = (e.dtHrs  * e.rate * 2);
-    TOT_REG += e.regHrs;
-    TOT_OT  += e.otHrs;
-    TOT_DT  += e.dtHrs;
-    TOT_PAY += e.totalPay;
+  const lines = ['*JournalNo,*JournalDate,*AccountName,Memo,Debits,Credits,Description'];
+  empResumen.forEach((e, idx) => {
+    const counter = String(idx+1).padStart(2,'0');
+    const journalNo = prefix+'-'+batchDate+'-'+counter;
+    const desc = e.usuario+': '+e.regHrs.toFixed(1)+'h reg + '+e.otHrs.toFixed(1)+'h OT + '+e.dtHrs.toFixed(1)+'h DT';
+    const amt = e.total.toFixed(2);
+    // Linea débito (al gasto)
     lines.push([
-      csv(cap(e.nombre)),
-      csv(usDate(fromVal)),
-      csv(usDate(toVal)),
-      csv(e.regHrs.toFixed(2)),
-      csv(e.otHrs.toFixed(2)),
-      csv(e.dtHrs.toFixed(2)),
-      csv(e.rate.toFixed(2)),
-      csv(regPay.toFixed(2)),
-      csv(otPay.toFixed(2)),
-      csv(dtPay.toFixed(2)),
-      csv(e.totalPay.toFixed(2)),
-      csv(`Wylog ${usDate(fromVal)}-${usDate(toVal)} · ${e.usuario}`)
+      csv(journalNo),
+      csv(journalDate),
+      csv(acc),
+      csv(memo),
+      amt,
+      '',
+      csv(desc)
+    ].join(','));
+    // Linea crédito (de la cuenta bancaria)
+    lines.push([
+      csv(journalNo),
+      csv(journalDate),
+      csv(pay),
+      csv(memo),
+      '',
+      amt,
+      csv('Pago nomina a '+e.usuario)
     ].join(','));
   });
 
-  // Fila de TOTALES (verificación cruzada para el contador)
-  lines.push([
-    csv('TOTALES'), csv(''), csv(''),
-    csv(TOT_REG.toFixed(2)),
-    csv(TOT_OT.toFixed(2)),
-    csv(TOT_DT.toFixed(2)),
-    csv(''), csv(''), csv(''), csv(''),
-    csv(TOT_PAY.toFixed(2)),
-    csv(`${empResumen.length} empleado(s)`)
-  ].join(','));
-  lines.push('');
-
-  // ── BLOQUE 2: Detalle día por día (timesheet import) ─────────────
-  lines.push(csv('=== DETALLE DIARIO (timesheet import opcional) ==='));
-  lines.push([
-    csv('Employee Name'),
-    csv('Date'),
-    csv('Total Hours'),
-    csv('Regular Hours'),
-    csv('Overtime Hours'),
-    csv('Doubletime Hours'),
-    csv('Service/Project'),
-    csv('Notes')
-  ].join(','));
-
-  empResumen.forEach(e => {
-    e.dailyRows.forEach(d => {
-      const totH = min2hrs(d.totalMin);
-      const noteParts = [];
-      if(d.totalMin > 720) noteParts.push('Día largo (>12h)');
-      else if(d.totalMin > 480) noteParts.push('Con horas extra');
-      lines.push([
-        csv(cap(e.nombre)),
-        csv(usDate(d.date)),
-        csv(totH.toFixed(2)),
-        csv(min2hrs(d.regMin).toFixed(2)),
-        csv(min2hrs(d.otMin).toFixed(2)),
-        csv(min2hrs(d.dtMin).toFixed(2)),
-        csv(d.proyectos),
-        csv(noteParts.join(' · '))
-      ].join(','));
-    });
-  });
-
-  // ── Generar archivo con BOM + CRLF ───────────────────────────────
-  const BOM = '﻿';
-  const csvText = BOM + lines.join('\r\n') + '\r\n';
-  const filename = `wylog_quickbooks_${fromVal}_a_${toVal}.csv`;
-  dlFile(filename, csvText, 'text/csv;charset=utf-8');
-
-  let msg = `✓ ${empResumen.length} empleado(s) exportado(s) para QuickBooks`;
-  if(sinRate.length) msg += ` · ⚠ ${sinRate.length} omitido(s) por falta de tarifa`;
-  toast(msg, 'ok');
+  const content = '\ufeff' + lines.join('\n');
+  const blob = new Blob([content], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'WYLOG_QB_JE_'+fromVal+'_'+toVal+'.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  let msg = 'CSV QuickBooks descargado · '+empResumen.length+' empleados';
+  if(sinRate.length) msg += ' ('+sinRate.length+' sin tarifa omitidos)';
+  toast(msg,'ok');
 }
 
 function exportPayrollPDF(){
@@ -6892,9 +6814,19 @@ function _generateQBJECsv(rows, opts){
   const lines = [header];
 
   // Una pareja Débito + Crédito por empleado
+  // QBO limita JournalNo a 21 caracteres → formato compacto: PREFIX-YYMMDD-NN
+  const _shortPrefix = (prefix || 'WYLOG').slice(0, 5).toUpperCase();
+  const _batchDate = (() => {
+    const d = cfg.period_start_date instanceof Date ? cfg.period_start_date : new Date();
+    const yy = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return yy+mm+dd;
+  })();
   rows.forEach((r, idx) => {
     if(!r.amount || r.amount <= 0) return; // skip empleados sin monto
-    const journalNo = prefix+'-'+(cfg.batch_id || _qbFmtDate(new Date()).replace(/\//g,''))+'-'+(r.usuario||('emp'+(idx+1)));
+    const counter = String(idx+1).padStart(2,'0');
+    const journalNo = _shortPrefix+'-'+_batchDate+'-'+counter;
     const date = periodStart;
     const desc = (r.usuario||'')+': '+(r.regH||0).toFixed(1)+'h reg + '+(r.otH||0).toFixed(1)+'h OT + '+(r.dtH||0).toFixed(1)+'h DT';
     const amt = Number(r.amount).toFixed(2);
