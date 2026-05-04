@@ -3113,6 +3113,7 @@ const PayrollEngine = {
       nombre: employee.nombre || employee.usuario,
       dias: 0, jornadas: [],
       horasBruto: 0, horasLunch: 0, horasNetas: 0,
+      horasReg: 0, horasOT: 0, horasDT: 0,
       rate, totalPago: 0, sinDatos: true
     };
 
@@ -3121,11 +3122,37 @@ const PayrollEngine = {
     const horasLunch = this._toDecimalH(totalMinLunch);
     const horasNetas = this._toDecimalH(totalMinNeto);
 
+    // ── California Daily OT split (Labor Code §510) ──
+    // Per-day: ≤8h regular, 8h–12h × 1.5 (OT), >12h × 2 (DT).
+    // Aplicado por DÍA, no por semana — California aplica el premium al total diario.
+    const _caOTSplit = totMin => {
+      if (totMin <= 480) return { regMin: totMin, otMin: 0, dtMin: 0 };
+      if (totMin <= 720) return { regMin: 480, otMin: totMin - 480, dtMin: 0 };
+      return { regMin: 480, otMin: 240, dtMin: totMin - 720 };
+    };
+    const _byDate = {};
+    jornadas.forEach(j => {
+      if (!_byDate[j.fecha]) _byDate[j.fecha] = 0;
+      _byDate[j.fecha] += j.minNeto;
+    });
+    let totRegMin = 0, totOtMin = 0, totDtMin = 0;
+    Object.values(_byDate).forEach(tot => {
+      const sp = _caOTSplit(tot);
+      totRegMin += sp.regMin;
+      totOtMin  += sp.otMin;
+      totDtMin  += sp.dtMin;
+    });
+    const horasReg = this._toDecimalH(totRegMin);
+    const horasOT  = this._toDecimalH(totOtMin);
+    const horasDT  = this._toDecimalH(totDtMin);
+
     // ── Monetary calculation in integer CENTS (avoid float drift) ──
-    // e.g. 8.5h × $18.00/h = 153.00  →  850 × 1800 = 1530000 cents = $153.00
-    const hCents   = Math.round(horasNetas * 100);  // hours as integer cents-of-hours
-    const rateCents = Math.round(rate * 100);        // rate in cents
-    const totalCents = Math.round((hCents * rateCents) / 100); // result in cents
+    // CA Daily OT applied: reg × rate + OT × rate × 1.5 + DT × rate × 2
+    const rateCents = Math.round(rate * 100);
+    const regCents = Math.round((totRegMin / 60) * rateCents);
+    const otCents  = Math.round((totOtMin  / 60) * rateCents * 1.5);
+    const dtCents  = Math.round((totDtMin  / 60) * rateCents * 2);
+    const totalCents = regCents + otCents + dtCents;
     const totalPago  = totalCents / 100;
 
     return {
@@ -3136,6 +3163,9 @@ const PayrollEngine = {
       horasBruto,
       horasLunch,
       horasNetas,
+      horasReg,
+      horasOT,
+      horasDT,
       rate,
       totalPago
     };
@@ -3262,11 +3292,13 @@ function renderNomina(){
 
   // Build table
   let tableHTML=`
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
-      💡 Clic en una fila para ver el desglose diario. La columna <b>$/hr</b> es editable individualmente.
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span>💡 Clic en una fila para ver el desglose diario. La columna <b>$/hr</b> es editable individualmente.</span>
+      <span style="margin-left:auto;color:var(--emerald);font-weight:600" id="nm-sel-info">Seleccionados: <span id="nm-sel-count">${activeResults.length}</span> de ${activeResults.length}</span>
     </div>
     <div class="tbl-wrap"><table class="nm-tbl">
       <thead><tr>
+        <th style="width:36px;text-align:center"><input type="checkbox" id="nm-check-all" checked onchange="toggleAllPayrollSelection(this.checked)" title="Seleccionar / deseleccionar todos" style="width:16px;height:16px;cursor:pointer;accent-color:var(--emerald)"/></th>
         <th>#</th>
         <th>Empleado</th>
         <th style="text-align:center">Días</th>
@@ -3285,6 +3317,7 @@ function renderNomina(){
   results.forEach((r,idx)=>{
     if(r.sinDatos){
       rowsHTML+=`<tr style="opacity:.4">
+        <td></td>
         <td class="td2">${idx+1}</td>
         <td>${s(cap(r.nombre))}</td>
         <td colspan="6" style="color:var(--text3);font-size:11px" data-i18n-d="noShiftsHere">Sin jornadas en este período</td>
@@ -3294,6 +3327,9 @@ function renderNomina(){
     const rateVal = (payRates[r.usuario]||globalRate).toFixed(2);
     const jId=`j-${idx}`;
     rowsHTML+=`<tr class="nm-expand" onclick="toggleJornadas('${jId}')">
+      <td style="text-align:center" onclick="event.stopPropagation()">
+        <input type="checkbox" class="nm-row-check" data-usuario="${s(r.usuario)}" checked onchange="updatePayrollSelectionCount()" title="Incluir en exports" style="width:16px;height:16px;cursor:pointer;accent-color:var(--emerald)"/>
+      </td>
       <td class="td2">${idx+1}</td>
       <td><b>${s(cap(r.nombre))}</b><div style="font-size:10px;color:var(--text3)">@${s(r.usuario)}</div></td>
       <td style="text-align:center">${r.dias}</td>
@@ -3307,7 +3343,7 @@ function renderNomina(){
       <td style="text-align:right"><span class="pay-total">$${r.totalPago.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></td>
     </tr>
     <tbody class="jornada-rows" id="${jId}">
-      <tr><td></td><td colspan="7" style="padding:0">
+      <tr><td></td><td colspan="8" style="padding:0">
         <table style="width:100%;border-collapse:collapse">
           <thead style="background:rgba(0,0,0,.2)">
             <tr><th style="padding:5px 12px;font-size:9px;color:var(--text3);text-align:left" data-i18n-d="dateLbl">Fecha</th>
@@ -3334,7 +3370,7 @@ function renderNomina(){
 
   // Totals footer row
   rowsHTML+=`<tr style="background:rgba(0,214,143,.04);border-top:2px solid var(--emerald)">
-    <td colspan="3" style="font-size:12px;font-weight:700;color:var(--text2);padding:12px">TOTAL EMPRESA</td>
+    <td colspan="4" style="font-size:12px;font-weight:700;color:var(--text2);padding:12px">TOTAL EMPRESA</td>
     <td style="text-align:right;font-weight:600">${fmt(sumHBruto)}h</td>
     <td style="text-align:right;color:var(--amber)">${fmt(sumLunch)}h</td>
     <td style="text-align:right;font-weight:700;color:var(--emerald)">${fmt(sumHNeto)}h</td>
@@ -3359,16 +3395,21 @@ function updateRate(usuario, val){
 
 function exportPayrollCSV(){
   if(!lastPayroll.length){toast('Genera un cálculo primero','ko');return;}
+  const selectedSet = getSelectedPayrollUsers();
+  if(!selectedSet.size){ toast('Selecciona al menos un empleado','ko'); return; }
+  const filtered = lastPayroll.filter(r => !r.sinDatos && !r.error && selectedSet.has(r.usuario));
+  if(!filtered.length){ toast('Los seleccionados no tienen datos validos','ko'); return; }
   const from=document.getElementById('nm-from').value;
   const to=document.getElementById('nm-to').value;
   const lines=[
     `"Wylog — Reporte de Nómina"`,
     `"Período","${s(from)} al ${s(to)}"`,
     `"Generado","${fmtDateTimeUS(new Date())}"`,
+    `"Empleados incluidos","${filtered.length}"`,
     '',
     '"Empleado","Usuario","Días","Hrs Brutas","Hrs Lunch","Hrs Netas","Tasa $/hr","Total $"'
   ];
-  lastPayroll.filter(r=>!r.sinDatos&&!r.error).forEach(r=>{
+  filtered.forEach(r=>{
     lines.push([
       cap(r.nombre), r.usuario, r.dias,
       r.horasBruto.toFixed(2), r.horasLunch.toFixed(2),
@@ -3379,7 +3420,7 @@ function exportPayrollCSV(){
   // Detail rows
   lines.push('','','DETALLE POR JORNADA');
   lines.push('"Empleado","Fecha","Hrs Brutas","Hrs Lunch","Hrs Netas","Caso","Proyecto"');
-  lastPayroll.filter(r=>!r.sinDatos&&!r.error).forEach(r=>{
+  filtered.forEach(r=>{
     r.jornadas.forEach(j=>{
       lines.push([
         cap(r.nombre), j.fecha,
@@ -3389,7 +3430,7 @@ function exportPayrollCSV(){
     });
   });
   dlFile('nomina.csv', lines.join('\n'), 'text/csv;charset=utf-8');
-  toast('CSV exportado','ok');
+  toast('CSV exportado · '+filtered.length+' empleados','ok');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -3407,6 +3448,29 @@ function exportPayrollCSV(){
 //  • BOM UTF-8 para que Excel/QB lean acentos correctamente
 //  • CRLF como line ending para máxima compatibilidad Windows
 // ════════════════════════════════════════════════════════════════════
+// ── Helpers de selección de empleados en tabla de Nómina ──
+function toggleAllPayrollSelection(checked){
+  document.querySelectorAll('.nm-row-check').forEach(c => { c.checked = checked; });
+  updatePayrollSelectionCount();
+}
+function updatePayrollSelectionCount(){
+  const all = document.querySelectorAll('.nm-row-check');
+  const checked = document.querySelectorAll('.nm-row-check:checked');
+  const cnt = document.getElementById('nm-sel-count');
+  if(cnt) cnt.textContent = String(checked.length);
+  const master = document.getElementById('nm-check-all');
+  if(master){
+    master.checked = (all.length > 0 && checked.length === all.length);
+    master.indeterminate = (checked.length > 0 && checked.length < all.length);
+  }
+}
+function getSelectedPayrollUsers(){
+  const sel = Array.from(document.querySelectorAll('.nm-row-check:checked'))
+                   .map(c => c.dataset.usuario)
+                   .filter(Boolean);
+  return new Set(sel);
+}
+
 function exportPayrollQuickBooksCSV(){
   if(!lastPayroll.length){toast('Genera un cálculo primero','ko');return;}
   const fromVal = document.getElementById('nm-from').value;
@@ -3453,13 +3517,15 @@ function exportPayrollQuickBooksCSV(){
   };
   const min2hrs = m => Math.round((m / 60) * 100) / 100;
 
-  // ── Validar empleados con datos válidos ──
-  const valid = lastPayroll.filter(r => !r.sinDatos && !r.error);
-  if(!valid.length){ toast('No hay datos validos para exportar','ko'); return; }
+  // ── Validar empleados con datos válidos + filtrar por checkboxes ──
+  const selectedSet = getSelectedPayrollUsers();
+  if(!selectedSet.size){ toast('Selecciona al menos un empleado','ko'); return; }
+  const valid = lastPayroll.filter(r => !r.sinDatos && !r.error && selectedSet.has(r.usuario));
+  if(!valid.length){ toast('Los seleccionados no tienen datos validos','ko'); return; }
   const sinRate = valid.filter(r => !r.rate || r.rate <= 0);
   const conRate = valid.filter(r => r.rate > 0);
   if(!conRate.length){
-    toast('Ningun empleado tiene tarifa configurada','ko');
+    toast('Ningun seleccionado tiene tarifa configurada','ko');
     return;
   }
 
@@ -3547,6 +3613,8 @@ function exportPayrollQuickBooksCSV(){
 
 function exportPayrollPDF(){
   if(!lastPayroll.length){toast('Genera un cálculo primero','ko');return;}
+  const selectedSet = getSelectedPayrollUsers();
+  if(!selectedSet.size){ toast('Selecciona al menos un empleado','ko'); return; }
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   const W=doc.internal.pageSize.getWidth();
@@ -3564,8 +3632,9 @@ function exportPayrollPDF(){
   doc.text(`Período: ${from} → ${to}   |   Generado: ${fmtDateTimeUS(new Date())}`,10,20);
   doc.text('Este documento es de solo lectura. Los cálculos no modifican la base de datos de asistencia.',10,26);
 
-  // ── Summary table
-  const active=lastPayroll.filter(r=>!r.sinDatos&&!r.error);
+  // ── Summary table (filtrado por empleados seleccionados) ──
+  const active=lastPayroll.filter(r=>!r.sinDatos&&!r.error&&selectedSet.has(r.usuario));
+  if(!active.length){ toast('Los seleccionados no tienen datos validos','ko'); return; }
   let sumNeto=0,sumPago=0;
   active.forEach(r=>{sumNeto+=r.horasNetas;sumPago+=r.totalPago;});
 
@@ -6867,39 +6936,37 @@ function downloadQBTestCSV(){
     {usuario:'emp_test_02', regH:38, otH:0, dtH:0, amount:456.00},
     {usuario:'emp_test_03', regH:40, otH:8, dtH:2, amount:672.00}
   ], {
-    account_name:a, payment_account:p, prefix:pre, company_name:co,
+    account_name: a,
+    payment_account: p,
+    prefix: pre,
+    company_name: co,
     period_start: today,
-    period_label: '(prueba)'
+    period_label: 'Test '+today,
+    batch_id: today.replace(/\//g,'')
   });
-  // Descargar
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'WYLOG_QB_TEST_'+today.replace(/\//g,'-')+'.csv';
+  link.download = 'WYLOG_QB_TEST_'+today.replace(/\//g,'')+'.csv';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
-  toast('CSV de prueba descargado — pruebalo en tu QuickBooks','ok');
+  toast('CSV de prueba descargado','ok');
 }
 
-// Función pública para exportar QB JE de la nómina del periodo seleccionado
+// Export con datos reales del periodo seleccionado en Confianza
 async function exportQuickBooksJE(){
-  if(!SB_URL || !SB_KEY){ toast('Sin conexión','ko'); return; }
-  // Cargar settings frescos
   await loadQBSettings();
   if(!_qbSettings.account_name || !_qbSettings.payment_account){
-    toast('⚠️ Configura QuickBooks en Confianza primero','ko');
+    toast('Configura QuickBooks en Confianza primero','ko');
     if(typeof nav==='function') nav('confianza');
     return;
   }
-  // Tomar empleados con horas del periodo actual
-  // Asume que el portal ya tiene una lista de empleados con horas calculadas
-  // Esto se conecta con el reporte de nómina existente
   const employees = window._currentPayrollEmployees || [];
   if(!employees.length){
-    toast('⚠️ No hay empleados con horas en el periodo seleccionado','ko');
+    toast('No hay empleados con horas en el periodo seleccionado','ko');
     return;
   }
   const fromVal = document.getElementById('rpt-from')?.value || '';
@@ -6920,7 +6987,7 @@ async function exportQuickBooksJE(){
   link.click();
   document.body.removeChild(link);
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
-  toast('✓ CSV QuickBooks descargado · '+employees.length+' empleados','ok');
+  toast('CSV QuickBooks descargado · '+employees.length+' empleados','ok');
 }
 
 // Auto-cargar settings al entrar a Confianza
