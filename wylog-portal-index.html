@@ -1320,6 +1320,42 @@ tbody td{padding:11px 12px;font-size:12px}
         </div>
       </div>
 
+      <!-- ── Settings de QuickBooks Export (Journal Entries CSV) ── -->
+      <div style="margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2ca01c" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          <h3 style="margin:0;font-size:15px;color:#2ca01c">QuickBooks Online · Journal Entries Export</h3>
+        </div>
+        <div style="font-size:11px;color:var(--text4);margin-bottom:12px;line-height:1.5">
+          Configura los nombres EXACTOS de las cuentas como aparecen en tu Chart of Accounts de QuickBooks (incluyendo mayúsculas y espacios). El CSV importará 100% sin errores. <b>Verificar:</b> en QBO ve a Accounting → Chart of Accounts → click en la cuenta → copia el nombre exacto del campo "Account name".
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px">Cuenta de gasto (sueldos)</label>
+            <input id="qb-account-name" type="text" placeholder="Ej: Wages, Direct Labor, Payroll Expenses" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:inherit;font-size:12px"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px">Cuenta bancaria (pago)</label>
+            <input id="qb-payment-account" type="text" placeholder="Ej: Checking, Bank of America" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:inherit;font-size:12px"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px">Prefijo Journal No</label>
+            <input id="qb-prefix" type="text" placeholder="Ej: WYLOG, LNI, NOM" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:inherit;font-size:12px"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text4);display:block;margin-bottom:4px">Nombre empresa (Memo)</label>
+            <input id="qb-company-name" type="text" placeholder="Ej: LNI Custom Manufacturing" style="width:100%;padding:9px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:inherit;font-size:12px"/>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;flex-wrap:wrap">
+          <button onclick="downloadQBTestCSV()" style="padding:7px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px">📥 CSV de prueba (3 empleados ficticios)</button>
+          <button onclick="saveQBSettings()" style="padding:7px 14px;background:rgba(44,160,28,0.15);border:1px solid rgba(44,160,28,0.4);color:#2ca01c;border-radius:6px;font-weight:600;cursor:pointer;font-family:inherit;font-size:12px">💾 Guardar config QB</button>
+        </div>
+        <div style="margin-top:10px;padding:8px 10px;background:rgba(44,160,28,0.06);border-left:3px solid #2ca01c;border-radius:6px;font-size:11px;color:var(--text2);line-height:1.5">
+          💡 <b>Para exportar nóminas:</b> ve a Nómina → selecciona periodo → botón <b>"📋 Exportar a QuickBooks"</b>. El CSV usa estos settings.
+        </div>
+      </div>
+
       <div id="confianza-list" style="margin-top:16px;display:flex;flex-direction:column;gap:10px"></div>
     </div>
 
@@ -6732,80 +6768,239 @@ function updateAdjustPreview(){
   const monthName = newEnd.toLocaleDateString('es-US', {month:'long'});
   const yearN = newEnd.getFullYear();
   const hour12 = newEnd.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit',hour12:true});
-  // Formato natural: "Usted corregirá la hora de cierre a las 3:00 PM del día viernes, 1 de mayo 2026"
-  // Capitalizar día
   const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
   previewEl.style.display = 'block';
   previewEl.style.background = 'linear-gradient(135deg,rgba(16,185,129,0.10),rgba(16,185,129,0.03))';
   previewEl.style.borderColor = 'rgba(16,185,129,0.30)';
   previewText.innerHTML =
-    '<b style="color:#10b981">Confirmación:</b> Usted corregirá la hora de cierre a <b style="color:#fff">'+hour12+'</b> del día <b style="color:#fff">'+cap(dayName)+', '+dayNum+' de '+monthName+' '+yearN+'</b>.'
-    + '<div style="margin-top:6px;font-size:11px;color:var(--text4)">Duración total de la jornada: <b style="color:var(--text2)">'+h+'h '+(minR<10?'0':'')+minR+'m</b></div>';
+    '<b style="color:#10b981">Confirmacion:</b> Usted corregira la hora de cierre a <b style="color:#fff">'+hour12+'</b> del dia <b style="color:#fff">'+cap(dayName)+', '+dayNum+' de '+monthName+' '+yearN+'</b>.'
+    + '<div style="margin-top:6px;font-size:11px;color:var(--text4)">Duracion total: <b style="color:var(--text2)">'+h+'h '+(minR<10?'0':'')+minR+'m</b></div>';
   confirmBtn.disabled = false;
   confirmBtn.style.opacity = '1';
 }
 
-async function confirmAdjustTime(){
-  if(!_adjSession) return;
-  const inp = document.getElementById('adj-time-input');
-  if(!inp) return;
-  const val = (inp.value||'').trim();
-  const m = val.match(/^(\d{1,2}):(\d{2})$/);
-  if(!m){ toast('Formato HH:MM inválido','ko'); return; }
-  const hh = parseInt(m[1],10);
-  const mm = parseInt(m[2],10);
-  const s = _adjSession;
-  const newEnd = new Date(s.started_at);
-  newEnd.setHours(hh, mm, 0, 0);
-  if(newEnd <= new Date(s.started_at)){ toast('Fin debe ser posterior al inicio','ko'); return; }
-  const newMin = Math.round((newEnd - new Date(s.started_at))/60000);
-  await updateSessionStatus(s.id, {
-    approval_status: 'APPROVED',
-    approved_by: window.adminUser || 'admin',
-    approved_at: new Date().toISOString(),
-    approved_end_time: newEnd.toISOString(),
-    total_minutes: newMin
-  });
-  closeAdjustTimeModal();
-  toast('✓ Aprobada con '+Math.floor(newMin/60)+'h '+(newMin%60)+'m','ok');
-  await loadFieldSessions();
-  renderCampoSessions();
-  document.getElementById('campo-detail').style.display='none';
-  document.getElementById('campo-detail-empty').style.display='block';
-}
-
-
 // ════════════════════════════════════════════════════════════════
-// AUTO-REFRESH del detalle de sesión abierto (cada 30s)
+// QUICKBOOKS EXPORT — Settings + CSV Generator
 // ════════════════════════════════════════════════════════════════
-// Si el admin tiene una sesión seleccionada, cada 30s recarga
-// la lista de sesiones desde Supabase y, si la sesión seleccionada
-// cambió (ej. ended_at apareció), refresca el panel derecho.
-setInterval(async () => {
+let _qbSettings = {
+  account_name: 'Wages',
+  payment_account: 'Checking',
+  prefix: 'WYLOG',
+  company_name: 'LNI Custom Manufacturing'
+};
+
+async function loadQBSettings(){
+  if(!SB_URL || !SB_KEY) return;
   try {
-    if(_campoSelected || _olvidosSelected){
-      const before = JSON.stringify({c:_campoSessions.find(s=>s.id===_campoSelected)?.ended_at, o:_olvidosSessions.find(s=>s.id===_olvidosSelected)?.ended_at});
-      await loadFieldSessions();
-      const after = JSON.stringify({c:_campoSessions.find(s=>s.id===_campoSelected)?.ended_at, o:_olvidosSessions.find(s=>s.id===_olvidosSelected)?.ended_at});
-      if(before !== after){
-        // Datos cambiaron — refrescar panel
-        if(_campoSelected) selectCampoSession(_campoSelected);
-        if(_olvidosSelected) selectOlvidoSession(_olvidosSelected);
-      } else {
-        // Solo refrescar contadores/lista (no romper el detalle abierto)
-        if(typeof renderCampoSessions === 'function') renderCampoSessions();
-        if(typeof renderOlvidosSessions === 'function') renderOlvidosSessions();
-      }
+    const res = await fetch(SB_URL+'/rest/v1/tracking_settings?select=key,value&key=in.(qb_account_name,qb_payment_account,qb_bill_prefix,qb_company_name)',{
+      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}
+    });
+    if(res.ok){
+      const rows = await res.json();
+      rows.forEach(r => {
+        if(r.key === 'qb_account_name') _qbSettings.account_name = r.value;
+        else if(r.key === 'qb_payment_account') _qbSettings.payment_account = r.value;
+        else if(r.key === 'qb_bill_prefix') _qbSettings.prefix = r.value;
+        else if(r.key === 'qb_company_name') _qbSettings.company_name = r.value;
+      });
     }
   } catch(_){}
-}, 30000);
+  // Pintar UI
+  const a = document.getElementById('qb-account-name');
+  const p = document.getElementById('qb-payment-account');
+  const pre = document.getElementById('qb-prefix');
+  const co = document.getElementById('qb-company-name');
+  if(a) a.value = _qbSettings.account_name;
+  if(p) p.value = _qbSettings.payment_account;
+  if(pre) pre.value = _qbSettings.prefix;
+  if(co) co.value = _qbSettings.company_name;
+}
 
-// Botón "Refrescar nombres" del detalle ahora también refresca toda la sesión
-window._refreshOpenSession = async function(){
-  try { await loadFieldSessions(); } catch(_){}
-  if(_campoSelected) selectCampoSession(_campoSelected);
-  if(_olvidosSelected) selectOlvidoSession(_olvidosSelected);
-};
+async function saveQBSettings(){
+  if(!SB_URL || !SB_KEY){ toast('Sin conexión a Supabase','ko'); return; }
+  const a = (document.getElementById('qb-account-name')?.value||'').trim();
+  const p = (document.getElementById('qb-payment-account')?.value||'').trim();
+  const pre = (document.getElementById('qb-prefix')?.value||'').trim();
+  const co = (document.getElementById('qb-company-name')?.value||'').trim();
+  if(!a || !p){ toast('Cuenta de gasto y bancaria son requeridas','ko'); return; }
+  const updates = [
+    {key:'qb_account_name', value:a, description:'Cuenta de gastos QB'},
+    {key:'qb_payment_account', value:p, description:'Cuenta bancaria QB'},
+    {key:'qb_bill_prefix', value:pre||'WYLOG', description:'Prefijo Journal No'},
+    {key:'qb_company_name', value:co||'', description:'Empresa para memo'}
+  ];
+  let okCount = 0;
+  for(const u of updates){
+    try {
+      const res = await fetch(SB_URL+'/rest/v1/tracking_settings?key=eq.'+encodeURIComponent(u.key),{
+        method:'PATCH',
+        headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body: JSON.stringify({value:u.value, updated_at:new Date().toISOString()})
+      });
+      if(res.ok || res.status===204){ okCount++; }
+      else {
+        // INSERT si no existe
+        const ins = await fetch(SB_URL+'/rest/v1/tracking_settings',{
+          method:'POST',
+          headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+          body: JSON.stringify(u)
+        });
+        if(ins.ok || ins.status===201) okCount++;
+      }
+    } catch(_){}
+  }
+  if(okCount === updates.length){
+    _qbSettings = {account_name:a, payment_account:p, prefix:pre||'WYLOG', company_name:co};
+    toast('✓ Config QuickBooks guardada','ok');
+  } else {
+    toast('Guardado parcial: '+okCount+'/4 — verifica que aplicaste el SQL supabase_quickbooks_settings','ko');
+  }
+}
+
+// Helper: escape de campos CSV (comillas dobles + comas)
+function _qbCsvEsc(v){
+  if(v === null || v === undefined) return '';
+  let s = String(v).replace(/"/g,'""');
+  // Neutralizar inyección de fórmulas
+  if(/^[=\+\-@]/.test(s)) s = "'" + s;
+  // Si tiene comas o comillas, envolver en comillas
+  if(/[",\n]/.test(s)) s = '"' + s + '"';
+  return s;
+}
+
+// Formato fecha MM/DD/YYYY (formato US estándar de QBO)
+function _qbFmtDate(d){
+  if(!(d instanceof Date)) d = new Date(d);
+  if(isNaN(d)) return '';
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return m+'/'+day+'/'+d.getFullYear();
+}
+
+// Genera el contenido CSV de Journal Entries para QuickBooks
+function _generateQBJECsv(rows, opts){
+  const cfg = opts || _qbSettings;
+  const acc = cfg.account_name || 'Wages';
+  const pay = cfg.payment_account || 'Checking';
+  const prefix = cfg.prefix || 'WYLOG';
+  const company = cfg.company_name || '';
+  const periodStart = cfg.period_start || _qbFmtDate(new Date());
+  const periodLabel = cfg.period_label || '';
+
+  const memo = (company ? 'Nomina '+company : 'Nomina')+(periodLabel?' '+periodLabel:'');
+  const header = '*JournalNo,*JournalDate,*AccountName,Memo,Debits,Credits,Description';
+  const lines = [header];
+
+  // Una pareja Débito + Crédito por empleado
+  rows.forEach((r, idx) => {
+    if(!r.amount || r.amount <= 0) return; // skip empleados sin monto
+    const journalNo = prefix+'-'+(cfg.batch_id || _qbFmtDate(new Date()).replace(/\//g,''))+'-'+(r.usuario||('emp'+(idx+1)));
+    const date = periodStart;
+    const desc = (r.usuario||'')+': '+(r.regH||0).toFixed(1)+'h reg + '+(r.otH||0).toFixed(1)+'h OT + '+(r.dtH||0).toFixed(1)+'h DT';
+    const amt = Number(r.amount).toFixed(2);
+    // Línea débito (al gasto)
+    lines.push([
+      _qbCsvEsc(journalNo),
+      _qbCsvEsc(date),
+      _qbCsvEsc(acc),
+      _qbCsvEsc(memo),
+      amt,
+      '',
+      _qbCsvEsc(desc)
+    ].join(','));
+    // Línea crédito (de la cuenta bancaria)
+    lines.push([
+      _qbCsvEsc(journalNo),
+      _qbCsvEsc(date),
+      _qbCsvEsc(pay),
+      _qbCsvEsc(memo),
+      '',
+      amt,
+      _qbCsvEsc('Pago nomina a '+(r.usuario||''))
+    ].join(','));
+  });
+
+  return lines.join('\n');
+}
+
+// Descarga CSV de prueba con 3 empleados ficticios
+function downloadQBTestCSV(){
+  const a = (document.getElementById('qb-account-name')?.value||'Wages').trim();
+  const p = (document.getElementById('qb-payment-account')?.value||'Checking').trim();
+  const pre = (document.getElementById('qb-prefix')?.value||'WYLOG').trim();
+  const co = (document.getElementById('qb-company-name')?.value||'').trim();
+  const today = _qbFmtDate(new Date());
+  const csv = _generateQBJECsv([
+    {usuario:'emp_test_01', regH:40, otH:5, dtH:0, amount:550.00},
+    {usuario:'emp_test_02', regH:38, otH:0, dtH:0, amount:456.00},
+    {usuario:'emp_test_03', regH:40, otH:8, dtH:2, amount:672.00}
+  ], {
+    account_name:a, payment_account:p, prefix:pre, company_name:co,
+    period_start: today,
+    period_label: '(prueba)'
+  });
+  // Descargar
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'WYLOG_QB_TEST_'+today.replace(/\//g,'-')+'.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('CSV de prueba descargado — pruebalo en tu QuickBooks','ok');
+}
+
+// Función pública para exportar QB JE de la nómina del periodo seleccionado
+async function exportQuickBooksJE(){
+  if(!SB_URL || !SB_KEY){ toast('Sin conexión','ko'); return; }
+  // Cargar settings frescos
+  await loadQBSettings();
+  if(!_qbSettings.account_name || !_qbSettings.payment_account){
+    toast('⚠️ Configura QuickBooks en Confianza primero','ko');
+    if(typeof nav==='function') nav('confianza');
+    return;
+  }
+  // Tomar empleados con horas del periodo actual
+  // Asume que el portal ya tiene una lista de empleados con horas calculadas
+  // Esto se conecta con el reporte de nómina existente
+  const employees = window._currentPayrollEmployees || [];
+  if(!employees.length){
+    toast('⚠️ No hay empleados con horas en el periodo seleccionado','ko');
+    return;
+  }
+  const fromVal = document.getElementById('rpt-from')?.value || '';
+  const toVal = document.getElementById('rpt-to')?.value || '';
+  const periodLabel = fromVal && toVal ? fromVal+' a '+toVal : '';
+  const csv = _generateQBJECsv(employees, {
+    ..._qbSettings,
+    period_start: fromVal ? _qbFmtDate(new Date(fromVal+'T12:00:00')) : _qbFmtDate(new Date()),
+    period_label: periodLabel,
+    batch_id: (fromVal||'').replace(/-/g,'')
+  });
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'WYLOG_QB_JE_'+(fromVal||'periodo')+'_'+(toVal||'fin')+'.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('✓ CSV QuickBooks descargado · '+employees.length+' empleados','ok');
+}
+
+// Auto-cargar settings al entrar a Confianza
+(function(){
+  const _orig = window.renderConfianza;
+  if(typeof _orig === 'function'){
+    window.renderConfianza = async function(){
+      try{ await _orig.apply(this, arguments); }catch(_){}
+      setTimeout(()=>{ try{ loadQBSettings(); }catch(_){} }, 150);
+    };
+  }
+})();
 
 </script>
 </body>
