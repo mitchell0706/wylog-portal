@@ -6608,6 +6608,123 @@ function dismissAdminBanner(){
 
 
 // ════════════════════════════════════════════════════════════════
+// Cache de map matching en Supabase (evita re-llamar Mapbox al re-abrir sesión)
+// ════════════════════════════════════════════════════════════════
+async function _readRouteCache(sessionId){
+  if(!sessionId || !SB_URL || !SB_KEY) return null;
+  try {
+    const r = await fetch(SB_URL+'/rest/v1/field_sessions?id=eq.'+encodeURIComponent(sessionId)+
+                          '&select=matched_route_geojson,matched_distance_m,matched_duration_s',{
+      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}
+    });
+    if(!r.ok) return null;
+    const arr = await r.json();
+    if(!arr || !arr.length) return null;
+    const row = arr[0];
+    if(row.matched_route_geojson && Array.isArray(row.matched_route_geojson) && row.matched_route_geojson.length >= 2){
+      console.log('[MapMatch] cache HIT — '+row.matched_route_geojson.length+' road points (no Mapbox call)');
+      return {
+        coords: row.matched_route_geojson,
+        distanceM: parseFloat(row.matched_distance_m)||0,
+        durationS: parseFloat(row.matched_duration_s)||0
+      };
+    }
+    return null;
+  } catch(e){ console.warn('[MapMatch] cache read error:', e); return null; }
+}
+
+async function _writeRouteCache(sessionId, matched){
+  if(!sessionId || !SB_URL || !SB_KEY || !matched || !matched.coords) return;
+  try {
+    await fetch(SB_URL+'/rest/v1/field_sessions?id=eq.'+encodeURIComponent(sessionId),{
+      method:'PATCH',
+      headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({
+        matched_route_geojson: matched.coords,
+        matched_distance_m: matched.distanceM || 0,
+        matched_duration_s: matched.durationS || 0,
+        matched_at: new Date().toISOString()
+      })
+    });
+    console.log('[MapMatch] cache SAVED for session '+sessionId);
+  } catch(e){ console.warn('[MapMatch] cache write error:', e); }
+}
+
+// ════════════════════════════════════════════════════════════════
+// Mapbox Map Matching — convierte pings GPS crudos en ruta sobre calles reales
+// Usa el mismo Mapbox key configurado para geocoding (_geoSettings.mapbox_key).
+// Si el key no existe o el matching falla, retorna null y el caller usa fallback.
+//
+// Mapbox limita a 100 puntos por request → chunking automático con overlap de 1
+// punto para evitar gaps entre segmentos.
+// ════════════════════════════════════════════════════════════════
+async function _mapMatchTracks(tracks){
+  if(!tracks || tracks.length < 2) return null;
+  const key = (typeof _geoSettings !== 'undefined' && _geoSettings && _geoSettings.mapbox_key) || '';
+  if(!key){
+    console.log('[MapMatch] Skipped — no Mapbox key configured');
+    return null;
+  }
+  // Cache local en sessionStorage por sessionId si se pasa
+  const CHUNK_SIZE = 100;
+  const chunks = [];
+  for(let i = 0; i < tracks.length; i += CHUNK_SIZE - 2){
+    const end = Math.min(i + CHUNK_SIZE, tracks.length);
+    chunks.push(tracks.slice(i, end));
+    if(end >= tracks.length) break;
+  }
+  const allCoords = [];
+  let succeeded = 0, failed = 0;
+  let _mmTotalDistanceM = 0;
+  let _mmTotalDurationS = 0;
+  for(const chunk of chunks){
+    if(chunk.length < 2) continue;
+    const coordStr = chunk.map(t => parseFloat(t.lng).toFixed(6)+','+parseFloat(t.lat).toFixed(6)).join(';');
+    const radiuses = chunk.map(t => Math.min(50, Math.max(10, parseFloat(t.accuracy)||25))).join(';');
+    const url = 'https://api.mapbox.com/matching/v5/mapbox/driving/'+coordStr+
+                '?geometries=geojson&overview=full&radiuses='+radiuses+
+                '&access_token='+encodeURIComponent(key);
+    try {
+      const res = await fetch(url);
+      if(!res.ok){
+        console.warn('[MapMatch] HTTP '+res.status+' (chunk size '+chunk.length+')');
+        failed++;
+        continue;
+      }
+      const data = await res.json();
+      if(data.code === 'Ok' && data.matchings && data.matchings.length){
+        const geom = data.matchings[0].geometry;
+        if(geom && geom.coordinates){
+          // Skip primer punto si no es el primer chunk (overlap con anterior)
+          const startIdx = (allCoords.length === 0) ? 0 : 1;
+          for(let j = startIdx; j < geom.coordinates.length; j++){
+            allCoords.push([geom.coordinates[j][1], geom.coordinates[j][0]]);
+          }
+          // Acumular distancia y duración del matching de Mapbox
+          if(typeof data.matchings[0].distance === 'number') _mmTotalDistanceM += data.matchings[0].distance;
+          if(typeof data.matchings[0].duration === 'number') _mmTotalDurationS += data.matchings[0].duration;
+          succeeded++;
+        } else {
+          failed++;
+        }
+      } else {
+        console.warn('[MapMatch] '+(data.code||'unknown')+': '+(data.message||''));
+        failed++;
+      }
+    } catch(e){
+      console.warn('[MapMatch] fetch error:', e);
+      failed++;
+    }
+  }
+  if(succeeded === 0 || allCoords.length === 0){
+    console.log('[MapMatch] All chunks failed ('+failed+') — fallback to raw polyline');
+    return null;
+  }
+  console.log('[MapMatch] '+succeeded+'/'+chunks.length+' chunks · '+allCoords.length+' road points · '+(_mmTotalDistanceM/1000).toFixed(1)+' km');
+  return {coords: allCoords, distanceM: _mmTotalDistanceM, durationS: _mmTotalDurationS};
+}
+
+// ════════════════════════════════════════════════════════════════
 // drawSessionMap + renderStops (mapa Leaflet con ruta + flechas + paradas)
 // ════════════════════════════════════════════════════════════════
 async function drawSessionMap(mapId, tracks, existingMap, callback, kind){
@@ -6631,7 +6748,37 @@ async function drawSessionMap(mapId, tracks, existingMap, callback, kind){
   const layer = L.layerGroup().addTo(map);
   const points = tracks.map(t=>[parseFloat(t.lat), parseFloat(t.lng)]);
   const routeColor = kind==='olvidos' ? '#f59e0b' : '#6366f1';
-  if(points.length >= 2) L.polyline(points,{color:routeColor,weight:4,opacity:0.85}).addTo(layer);
+  // Intentar map matching (snap-to-roads) — primero cache, después Mapbox.
+  let _routeMatched = null;  // {coords, distanceM, durationS} si Mapbox match exitoso
+  // sessionId puede venir en el primer track (se usa como pista para cache)
+  const _ssId = tracks[0] && (tracks[0].session_id || tracks[0].sessionId);
+  if(points.length >= 2){
+    // 1. Intentar leer del cache de Supabase (instant, no llama Mapbox)
+    if(_ssId){
+      try { _routeMatched = await _readRouteCache(_ssId); } catch(e){ console.warn('[MapMatch] cache read failed:',e); }
+    }
+    // 2. Si no hay cache, llamar Mapbox y guardar resultado
+    if(!_routeMatched){
+      try { _routeMatched = await _mapMatchTracks(tracks); } catch(e){ console.warn('[MapMatch] error:',e); }
+      if(_routeMatched && _ssId){
+        try { await _writeRouteCache(_ssId, _routeMatched); } catch(_){}
+      }
+    }
+    if(_routeMatched && _routeMatched.coords && _routeMatched.coords.length >= 2){
+      const rg = _routeMatched.coords;
+      // Doble línea: halo blanco abajo (8px) + color encima (5px) = mejor contraste sobre satélite
+      L.polyline(rg, {color:'#ffffff', weight:8, opacity:0.65}).addTo(layer);
+      L.polyline(rg, {color:routeColor, weight:5, opacity:0.95}).addTo(layer);
+      // Pings originales como puntitos discretos para validar (debug visible)
+      for(const p of points){
+        L.circleMarker(p, {radius:2, fillColor:'#ffffff', color:routeColor, weight:1, fillOpacity:0.4}).addTo(layer);
+      }
+    } else {
+      // Fallback: polyline cruda con líneas punteadas para indicar que no es ruta real
+      L.polyline(points, {color:'#ffffff', weight:7, opacity:0.5, dashArray:'6,4'}).addTo(layer);
+      L.polyline(points, {color:routeColor, weight:4, opacity:0.9, dashArray:'6,4'}).addTo(layer);
+    }
+  }
   // Flechas direccionales
   if(tracks.length > 2){
     for(let i=1;i<tracks.length-1;i+=Math.max(1,Math.floor(tracks.length/8))){
@@ -6658,6 +6805,62 @@ async function drawSessionMap(mapId, tracks, existingMap, callback, kind){
     try { placeName = await reverseGeocode(st.lat, st.lng); } catch(_){}
     L.circleMarker([st.lat,st.lng],{radius:11,fillColor:c,color:'#fff',weight:2,fillOpacity:0.9}).bindPopup('<b>'+(placeName||'Parada')+'</b><br>'+st.minutes+' min<br>'+st.startTs.toLocaleTimeString('en-US')+' → '+st.endTs.toLocaleTimeString('en-US')).addTo(layer);
   }
+  // ── OVERLAY: métricas de la sesión (distancia, tiempo, velocidad real) ──
+  try {
+    const tFirst = new Date(tracks[0].timestamp).getTime();
+    const tLast = new Date(tracks[tracks.length-1].timestamp).getTime();
+    const totalSec = Math.max(0, (tLast - tFirst)/1000);
+    // Tiempo en paradas (suma de stops detectadas, en segundos)
+    const stopSec = stops.reduce((acc, st) => acc + (parseFloat(st.minutes)||0)*60, 0);
+    const movingSec = Math.max(0, totalSec - stopSec);
+    // Distancia: del map matching si está disponible, sino sumar haversine entre pings
+    let distM = 0;
+    if(_routeMatched && _routeMatched.distanceM) {
+      distM = _routeMatched.distanceM;
+    } else {
+      // Fallback: sumar distancia haversine entre pings consecutivos
+      for(let i=1; i<tracks.length; i++){
+        const dLat = (parseFloat(tracks[i].lat) - parseFloat(tracks[i-1].lat)) * Math.PI/180;
+        const dLng = (parseFloat(tracks[i].lng) - parseFloat(tracks[i-1].lng)) * Math.PI/180;
+        const lat1 = parseFloat(tracks[i-1].lat) * Math.PI/180;
+        const lat2 = parseFloat(tracks[i].lat) * Math.PI/180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+        distM += 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      }
+    }
+    // Velocidad promedio EN MOVIMIENTO (no incluye paradas)
+    const distMi = distM / 1609.344;
+    const movingHours = movingSec / 3600;
+    const avgMph = movingHours > 0 ? (distMi / movingHours) : 0;
+    // Formatear
+    const fmtMin = s => {
+      const m = Math.round(s/60);
+      if(m < 60) return m+' min';
+      const h = Math.floor(m/60), rem = m%60;
+      return rem ? h+'h '+rem+'m' : h+'h';
+    };
+    const overlayHtml =
+      '<div style="background:rgba(0,0,0,0.78);backdrop-filter:blur(6px);padding:8px 12px;border-radius:8px;color:#fff;font-size:11px;line-height:1.5;border:1px solid rgba(255,255,255,0.15);font-family:inherit;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.4)">'+
+        '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">'+
+          '<span title="Distancia recorrida"><span style="opacity:0.7">📏</span> <b>'+distMi.toFixed(2)+' mi</b></span>'+
+          '<span title="Duración total (incluyendo paradas)"><span style="opacity:0.7">⏱️</span> <b>'+fmtMin(totalSec)+'</b> total</span>'+
+          (stopSec > 60 ? '<span title="Tiempo efectivo manejando" style="color:#a5b4fc"><span style="opacity:0.7">🚗</span> <b>'+fmtMin(movingSec)+'</b> en movimiento</span>' : '')+
+          '<span title="Velocidad promedio mientras manejaba (excluye paradas)" style="color:#10b981"><b>'+avgMph.toFixed(1)+' mph</b> promedio</span>'+
+        '</div>'+
+      '</div>';
+    const StatsCtl = L.Control.extend({
+      options: {position: 'topright'},
+      onAdd: function(){
+        const div = L.DomUtil.create('div', 'leaflet-control-stats');
+        div.innerHTML = overlayHtml;
+        L.DomEvent.disableClickPropagation(div);
+        return div;
+      }
+    });
+    map._statsCtl = new StatsCtl();
+    map._statsCtl.addTo(map);
+  } catch(e) { console.warn('[Stats overlay] error:', e); }
+
   if(points.length){
     try { map.fitBounds(L.latLngBounds(points).pad(0.15)); } catch(_){}
   }
