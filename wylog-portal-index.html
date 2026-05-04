@@ -562,14 +562,14 @@ tbody td{padding:11px 12px;font-size:12px}
       <div class="ph">
         <div class="ph-t"><h2 data-i18n-d="pageNomina">Cálculo de Nómina</h2><p data-i18n-d="pageNominaSub">Motor de pago on-the-fly — solo lectura, sin modificar registros</p></div>
         <div class="ph-a">
-          <button class="btn btn-g btn-sm" onclick="exportPayrollCSV()" title="Exportar resumen general como CSV">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV
+          <button id="nm-btn-csv" class="btn btn-g btn-sm" onclick="exportPayrollCSV()" title="Exportar resumen general como CSV (solo seleccionados)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="nm-btn-label">CSV</span>
           </button>
-          <button class="btn btn-qb btn-sm" onclick="exportPayrollQuickBooksCSV()" title="CSV con desglose Regular/OT/DT listo para importar a QuickBooks Online">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>QuickBooks
+          <button id="nm-btn-qb" class="btn btn-qb btn-sm" onclick="exportPayrollQuickBooksCSV()" title="CSV con desglose Regular/OT/DT listo para importar a QuickBooks Online (solo seleccionados)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="nm-btn-label">QuickBooks</span>
           </button>
-          <button class="btn btn-p btn-sm" onclick="exportPayrollPDF()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+          <button id="nm-btn-pdf" class="btn btn-p btn-sm" onclick="exportPayrollPDF()" title="PDF de nómina (solo seleccionados)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="nm-btn-label">PDF</span>
           </button>
         </div>
       </div>
@@ -3203,6 +3203,12 @@ const PayrollEngine = {
 let payRates = {};
 // Last computed results (for export)
 let lastPayroll = [];
+// Selección persistente de empleados para los exports.
+// Se mantiene a través de re-renders (auto-sync, cambios de tarifa, recálculo).
+// Si el Set está vacío significa "todos seleccionados" (estado inicial).
+// Si tiene elementos, ESOS son los seleccionados; los demás están desmarcados.
+let _payrollSelectedUsers = new Set();
+let _payrollSelectionMode = 'all'; // 'all' | 'subset'
 
 function setPreset(preset){
   // Update button styles
@@ -3290,15 +3296,34 @@ function renderNomina(){
     return;
   }
 
+  // ── Reconciliar selección persistente con empleados activos del periodo actual ──
+  const activeUsuarios = new Set(activeResults.map(r => r.usuario));
+  if(_payrollSelectionMode === 'subset'){
+    // Si había selección previa, mantén solo los usuarios que SIGUEN existiendo
+    for(const u of Array.from(_payrollSelectedUsers)){
+      if(!activeUsuarios.has(u)) _payrollSelectedUsers.delete(u);
+    }
+    // Si quedó vacío tras limpiar, vuelve a modo "all"
+    if(_payrollSelectedUsers.size === 0) _payrollSelectionMode = 'all';
+    // Si todos los activos quedaron en el set, también es "all"
+    else if(_payrollSelectedUsers.size === activeUsuarios.size && Array.from(activeUsuarios).every(u => _payrollSelectedUsers.has(u))){
+      _payrollSelectionMode = 'all';
+      _payrollSelectedUsers.clear();
+    }
+  }
+  const isSelected = (usuario) => _payrollSelectionMode === 'all' || _payrollSelectedUsers.has(usuario);
+  const selectedCount = _payrollSelectionMode === 'all' ? activeResults.length : _payrollSelectedUsers.size;
+  const allChecked = _payrollSelectionMode === 'all';
+
   // Build table
   let tableHTML=`
     <div style="font-size:11px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span>💡 Clic en una fila para ver el desglose diario. La columna <b>$/hr</b> es editable individualmente.</span>
-      <span style="margin-left:auto;color:var(--emerald);font-weight:600" id="nm-sel-info">Seleccionados: <span id="nm-sel-count">${activeResults.length}</span> de ${activeResults.length}</span>
+      <span style="margin-left:auto;color:var(--emerald);font-weight:600" id="nm-sel-info">Seleccionados: <span id="nm-sel-count">${selectedCount}</span> de ${activeResults.length}</span>
     </div>
     <div class="tbl-wrap"><table class="nm-tbl">
       <thead><tr>
-        <th style="width:36px;text-align:center"><input type="checkbox" id="nm-check-all" checked onchange="toggleAllPayrollSelection(this.checked)" title="Seleccionar / deseleccionar todos" style="width:16px;height:16px;cursor:pointer;accent-color:var(--emerald)"/></th>
+        <th style="width:36px;text-align:center"><input type="checkbox" id="nm-check-all" ${allChecked?'checked':''} onchange="toggleAllPayrollSelection(this.checked)" title="Seleccionar / deseleccionar todos" style="width:16px;height:16px;cursor:pointer;accent-color:var(--emerald)"/></th>
         <th>#</th>
         <th>Empleado</th>
         <th style="text-align:center">Días</th>
@@ -3326,9 +3351,10 @@ function renderNomina(){
     }
     const rateVal = (payRates[r.usuario]||globalRate).toFixed(2);
     const jId=`j-${idx}`;
+    const _checked = isSelected(r.usuario) ? 'checked' : '';
     rowsHTML+=`<tr class="nm-expand" onclick="toggleJornadas('${jId}')">
       <td style="text-align:center" onclick="event.stopPropagation()">
-        <input type="checkbox" class="nm-row-check" data-usuario="${s(r.usuario)}" checked onchange="updatePayrollSelectionCount()" title="Incluir en exports" style="width:16px;height:16px;cursor:pointer;accent-color:var(--emerald)"/>
+        <input type="checkbox" class="nm-row-check" data-usuario="${s(r.usuario)}" ${_checked} onchange="onPayrollRowCheckChange(this)" title="Incluir en exports" style="width:16px;height:16px;cursor:pointer;accent-color:var(--emerald)"/>
       </td>
       <td class="td2">${idx+1}</td>
       <td><b>${s(cap(r.nombre))}</b><div style="font-size:10px;color:var(--text3)">@${s(r.usuario)}</div></td>
@@ -3379,6 +3405,8 @@ function renderNomina(){
   </tr>`;
 
   tbody.innerHTML=rowsHTML;
+  // Actualizar badges de conteo en los 3 botones de export
+  try{ updatePayrollSelectionCount(); }catch(_){}
 }
 
 function toggleJornadas(id){
@@ -3448,27 +3476,100 @@ function exportPayrollCSV(){
 //  • BOM UTF-8 para que Excel/QB lean acentos correctamente
 //  • CRLF como line ending para máxima compatibilidad Windows
 // ════════════════════════════════════════════════════════════════════
-// ── Helpers de selección de empleados en tabla de Nómina ──
-function toggleAllPayrollSelection(checked){
-  document.querySelectorAll('.nm-row-check').forEach(c => { c.checked = checked; });
+// ── Helpers de selección PERSISTENTE de empleados en tabla de Nómina ──
+// La selección se mantiene en _payrollSelectedUsers y _payrollSelectionMode (declarados arriba)
+// para sobrevivir re-renders (auto-sync, cambios de tarifa, etc.).
+
+function onPayrollRowCheckChange(checkbox){
+  const usuario = checkbox.dataset.usuario;
+  if(!usuario) return;
+  // Si estábamos en modo "all", al destildar uno cambiamos a subset
+  if(_payrollSelectionMode === 'all'){
+    _payrollSelectionMode = 'subset';
+    // Inicializar set con TODOS los activos menos el destildado
+    _payrollSelectedUsers = new Set(
+      Array.from(document.querySelectorAll('.nm-row-check'))
+           .map(c => c.dataset.usuario)
+           .filter(u => u && u !== usuario)
+    );
+  } else {
+    if(checkbox.checked) _payrollSelectedUsers.add(usuario);
+    else _payrollSelectedUsers.delete(usuario);
+  }
+  // Si el subset cubre TODOS los visibles, volvemos a modo all
+  const allRows = document.querySelectorAll('.nm-row-check');
+  if(_payrollSelectionMode === 'subset' && _payrollSelectedUsers.size === allRows.length){
+    _payrollSelectionMode = 'all';
+    _payrollSelectedUsers.clear();
+  }
   updatePayrollSelectionCount();
 }
+
+function toggleAllPayrollSelection(checked){
+  if(checked){
+    // Marcar todos = modo all
+    _payrollSelectionMode = 'all';
+    _payrollSelectedUsers.clear();
+    document.querySelectorAll('.nm-row-check').forEach(c => { c.checked = true; });
+  } else {
+    // Desmarcar todos = subset vacío (export bloqueado)
+    _payrollSelectionMode = 'subset';
+    _payrollSelectedUsers.clear();
+    document.querySelectorAll('.nm-row-check').forEach(c => { c.checked = false; });
+  }
+  updatePayrollSelectionCount();
+}
+
 function updatePayrollSelectionCount(){
   const all = document.querySelectorAll('.nm-row-check');
-  const checked = document.querySelectorAll('.nm-row-check:checked');
+  let checkedCount;
+  if(_payrollSelectionMode === 'all') checkedCount = all.length;
+  else checkedCount = _payrollSelectedUsers.size;
+
   const cnt = document.getElementById('nm-sel-count');
-  if(cnt) cnt.textContent = String(checked.length);
+  if(cnt) cnt.textContent = String(checkedCount);
+
   const master = document.getElementById('nm-check-all');
   if(master){
-    master.checked = (all.length > 0 && checked.length === all.length);
-    master.indeterminate = (checked.length > 0 && checked.length < all.length);
+    master.checked = (all.length > 0 && checkedCount === all.length);
+    master.indeterminate = (checkedCount > 0 && checkedCount < all.length);
   }
+
+  // Actualizar badges en los 3 botones de export
+  const isSubset = (_payrollSelectionMode === 'subset' && checkedCount > 0 && checkedCount < all.length);
+  const isEmpty  = (_payrollSelectionMode === 'subset' && checkedCount === 0);
+  ['nm-btn-csv','nm-btn-qb','nm-btn-pdf'].forEach(id => {
+    const btn = document.getElementById(id);
+    if(!btn) return;
+    const lbl = btn.querySelector('.nm-btn-label');
+    const base = btn.dataset.label || lbl?.textContent || '';
+    if(!btn.dataset.label && lbl) btn.dataset.label = lbl.textContent;
+    if(lbl){
+      if(isEmpty) lbl.textContent = base + ' (0)';
+      else if(isSubset) lbl.textContent = base + ' ('+checkedCount+')';
+      else lbl.textContent = base;
+    }
+    btn.disabled = isEmpty;
+    btn.style.opacity = isEmpty ? '0.4' : '';
+    btn.style.cursor = isEmpty ? 'not-allowed' : '';
+  });
 }
+
 function getSelectedPayrollUsers(){
-  const sel = Array.from(document.querySelectorAll('.nm-row-check:checked'))
-                   .map(c => c.dataset.usuario)
-                   .filter(Boolean);
-  return new Set(sel);
+  // Si está en modo "all", devuelve todos los usuarios actualmente visibles
+  if(_payrollSelectionMode === 'all'){
+    return new Set(
+      Array.from(document.querySelectorAll('.nm-row-check'))
+           .map(c => c.dataset.usuario)
+           .filter(Boolean)
+    );
+  }
+  return new Set(_payrollSelectedUsers);
+}
+
+function resetPayrollSelection(){
+  _payrollSelectionMode = 'all';
+  _payrollSelectedUsers.clear();
 }
 
 function exportPayrollQuickBooksCSV(){
@@ -6881,50 +6982,33 @@ function _generateQBJECsv(rows, opts){
   const memo = (company ? 'Nomina '+company : 'Nomina')+(periodLabel?' '+periodLabel:'');
   const header = '*JournalNo,*JournalDate,*AccountName,Memo,Debits,Credits,Description';
   const lines = [header];
-
-  // Una pareja Débito + Crédito por empleado
-  // QBO limita JournalNo a 21 caracteres → formato compacto: PREFIX-YYMMDD-NN
-  const _shortPrefix = (prefix || 'WYLOG').slice(0, 5).toUpperCase();
-  const _batchDate = (() => {
-    const d = cfg.period_start_date instanceof Date ? cfg.period_start_date : new Date();
+  const _shortPrefix = String(prefix).slice(0,5).toUpperCase();
+  const _batchDate = (cfg.batch_id || (function(){
+    const d = new Date();
     const yy = String(d.getFullYear()).slice(-2);
     const mm = String(d.getMonth()+1).padStart(2,'0');
     const dd = String(d.getDate()).padStart(2,'0');
     return yy+mm+dd;
-  })();
+  })());
   rows.forEach((r, idx) => {
-    if(!r.amount || r.amount <= 0) return; // skip empleados sin monto
+    if(!r.amount || r.amount <= 0) return;
     const counter = String(idx+1).padStart(2,'0');
     const journalNo = _shortPrefix+'-'+_batchDate+'-'+counter;
     const date = periodStart;
     const desc = (r.usuario||'')+': '+(r.regH||0).toFixed(1)+'h reg + '+(r.otH||0).toFixed(1)+'h OT + '+(r.dtH||0).toFixed(1)+'h DT';
     const amt = Number(r.amount).toFixed(2);
-    // Línea débito (al gasto)
     lines.push([
-      _qbCsvEsc(journalNo),
-      _qbCsvEsc(date),
-      _qbCsvEsc(acc),
-      _qbCsvEsc(memo),
-      amt,
-      '',
-      _qbCsvEsc(desc)
+      _qbCsvEsc(journalNo), _qbCsvEsc(date), _qbCsvEsc(acc),
+      _qbCsvEsc(memo), amt, '', _qbCsvEsc(desc)
     ].join(','));
-    // Línea crédito (de la cuenta bancaria)
     lines.push([
-      _qbCsvEsc(journalNo),
-      _qbCsvEsc(date),
-      _qbCsvEsc(pay),
-      _qbCsvEsc(memo),
-      '',
-      amt,
-      _qbCsvEsc('Pago nomina a '+(r.usuario||''))
+      _qbCsvEsc(journalNo), _qbCsvEsc(date), _qbCsvEsc(pay),
+      _qbCsvEsc(memo), '', amt, _qbCsvEsc('Pago nomina a '+(r.usuario||''))
     ].join(','));
   });
-
   return lines.join('\n');
 }
 
-// Descarga CSV de prueba con 3 empleados ficticios
 function downloadQBTestCSV(){
   const a = (document.getElementById('qb-account-name')?.value||'Wages').trim();
   const p = (document.getElementById('qb-payment-account')?.value||'Checking').trim();
@@ -6936,12 +7020,8 @@ function downloadQBTestCSV(){
     {usuario:'emp_test_02', regH:38, otH:0, dtH:0, amount:456.00},
     {usuario:'emp_test_03', regH:40, otH:8, dtH:2, amount:672.00}
   ], {
-    account_name: a,
-    payment_account: p,
-    prefix: pre,
-    company_name: co,
-    period_start: today,
-    period_label: 'Test '+today,
+    account_name: a, payment_account: p, prefix: pre, company_name: co,
+    period_start: today, period_label: 'Test '+today,
     batch_id: today.replace(/\//g,'')
   });
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
@@ -6949,14 +7029,11 @@ function downloadQBTestCSV(){
   const link = document.createElement('a');
   link.href = url;
   link.download = 'WYLOG_QB_TEST_'+today.replace(/\//g,'')+'.csv';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
   toast('CSV de prueba descargado','ok');
 }
 
-// Export con datos reales del periodo seleccionado en Confianza
 async function exportQuickBooksJE(){
   await loadQBSettings();
   if(!_qbSettings.account_name || !_qbSettings.payment_account){
@@ -6983,14 +7060,11 @@ async function exportQuickBooksJE(){
   const link = document.createElement('a');
   link.href = url;
   link.download = 'WYLOG_QB_JE_'+(fromVal||'periodo')+'_'+(toVal||'fin')+'.csv';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
   toast('CSV QuickBooks descargado · '+employees.length+' empleados','ok');
 }
 
-// Auto-cargar settings al entrar a Confianza
 (function(){
   const _orig = window.renderConfianza;
   if(typeof _orig === 'function'){
