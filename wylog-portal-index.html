@@ -5531,35 +5531,76 @@ function _categorize(avgLat, avgLng, minutes, projectsCoords, clientesCoords){
 }
 
 function detectStops(tracks, projectsCoords, clientesCoords){
-  const STOP_RADIUS_M = 50;
-  const MIN_STOP_MIN = 15;
+  // ────────────────────────────────────────────────────────────────
+  // Centroid-anchored clustering — detecta paradas REALES sin falsos
+  // positivos en autopista.
+  //
+  // Cada ping se compara con el CENTROIDE del cluster (no con el último
+  // ping). Si el centroide se queda anclado en una zona, los pings que
+  // sigan dentro de RADIUS forman parte de la parada. En cuanto el ping
+  // sale del radio, el cluster se cierra. En autopista, el ping se aleja
+  // rápido del centroide → cluster nunca crece → no se reporta como parada.
+  //
+  // Tolerancia de jitter GPS: hasta 2 pings consecutivos pueden salir del
+  // radio sin romper el cluster (vuelve por GPS error breve). Solo rompe
+  // si hay 3+ pings consecutivos fuera del radio.
+  // ────────────────────────────────────────────────────────────────
+  const STOP_RADIUS_M  = 80;   // 80m — permite jitter GPS al estar parado
+  const MIN_STOP_MIN   = 5;    // 5 min mínimo — capturar paradas cortas también
+  const MAX_OUT_TOL    = 2;    // hasta 2 pings consecutivos fuera (jitter) sin cerrar
   const stops = [];
-  if(!tracks.length) return stops;
-  let cluster = [tracks[0]];
-  function flush(){
-    if(!cluster.length) return;
-    const startTs = new Date(cluster[0].timestamp);
-    const endTs = new Date(cluster[cluster.length-1].timestamp);
-    const minutes = Math.round((endTs-startTs)/60000);
+  if(!tracks || tracks.length < 2) return stops;
+
+  let i = 0;
+  while(i < tracks.length){
+    // Iniciar cluster en el ping i, centroide = ese ping
+    let centroidLat = parseFloat(tracks[i].lat);
+    let centroidLng = parseFloat(tracks[i].lng);
+    let count = 1;
+    let j = i + 1;
+    let outOfRadius = 0;  // contador de pings consecutivos fuera (tolerancia jitter)
+
+    while(j < tracks.length){
+      const t = tracks[j];
+      const distM = haversineKm(parseFloat(t.lat), parseFloat(t.lng), centroidLat, centroidLng) * 1000;
+      if(distM <= STOP_RADIUS_M){
+        // Dentro del radio del centroide → sigue en cluster
+        count++;
+        // Running average del centroide (más estable que recalcular todo)
+        centroidLat = centroidLat + (parseFloat(t.lat) - centroidLat)/count;
+        centroidLng = centroidLng + (parseFloat(t.lng) - centroidLng)/count;
+        outOfRadius = 0;
+        j++;
+      } else {
+        // Fuera del radio
+        outOfRadius++;
+        if(outOfRadius > MAX_OUT_TOL) break;  // jitter persistente → cerrar cluster
+        j++; // tolerar este ping (pudo haber sido GPS error)
+      }
+    }
+    // Recortar j para que apunte al último ping QUE ESTABA en el cluster
+    const lastInClusterIdx = j - 1 - outOfRadius;
+    if(lastInClusterIdx <= i){ i++; continue; }
+
+    const startTs = new Date(tracks[i].timestamp);
+    const endTs = new Date(tracks[lastInClusterIdx].timestamp);
+    const minutes = Math.round((endTs - startTs) / 60000);
     if(minutes >= MIN_STOP_MIN){
-      const avgLat = cluster.reduce((s,x)=>s+x.lat,0)/cluster.length;
-      const avgLng = cluster.reduce((s,x)=>s+x.lng,0)/cluster.length;
-      const category = _categorize(avgLat, avgLng, minutes, projectsCoords, clientesCoords);
-      stops.push({lat:avgLat,lng:avgLng,minutes,category,startTs,endTs,placeName:null});
-    }
-  }
-  for(let i=1;i<tracks.length;i++){
-    const t = tracks[i];
-    const last = cluster[cluster.length-1];
-    const distM = haversineKm(t.lat,t.lng,last.lat,last.lng)*1000;
-    if(distM <= STOP_RADIUS_M){
-      cluster.push(t);
+      const category = _categorize(centroidLat, centroidLng, minutes, projectsCoords, clientesCoords);
+      stops.push({
+        lat: centroidLat,
+        lng: centroidLng,
+        minutes,
+        category,
+        startTs,
+        endTs,
+        placeName: null
+      });
+      i = lastInClusterIdx + 1;
     } else {
-      flush();
-      cluster = [t];
+      i++;  // cluster muy corto, avanzar 1 ping
     }
   }
-  flush();
   return stops;
 }
 
