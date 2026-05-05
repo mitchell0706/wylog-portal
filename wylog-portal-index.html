@@ -5477,15 +5477,35 @@ async function loadFieldSessions(){
   } catch(e){ console.warn('loadFieldSessions:',e); }
 }
 
-// ── Cargar tracks GPS de una sesión ──
+// ── Cargar tracks GPS de una sesión (con paginación para >1000 pings) ──
+// Supabase REST API tiene un límite default de 1000 filas por response.
+// Sesiones largas (2-3h con plugin background) generan miles de pings, así que
+// paginamos usando limit/offset hasta agotar resultados.
 async function loadSessionTracks(sessionId){
   if(!SB_URL || !SB_KEY || !sessionId) return [];
+  const PAGE_SIZE = 1000;
+  const MAX_PAGES = 50;  // tope de seguridad — 50,000 pings máximo
+  let allTracks = [];
+  let offset = 0;
   try {
-    const url = `${SB_URL}/rest/v1/gps_tracks?session_id=eq.${sessionId}&order=timestamp.asc`;
-    const res = await fetch(url, {headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}});
-    if(!res.ok) return [];
-    return await res.json();
-  } catch(e){ return []; }
+    for(let page = 0; page < MAX_PAGES; page++){
+      const url = `${SB_URL}/rest/v1/gps_tracks?session_id=eq.${sessionId}&order=timestamp.asc&limit=${PAGE_SIZE}&offset=${offset}`;
+      const res = await fetch(url, {headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}});
+      if(!res.ok) break;
+      const chunk = await res.json();
+      if(!Array.isArray(chunk) || chunk.length === 0) break;
+      allTracks = allTracks.concat(chunk);
+      if(chunk.length < PAGE_SIZE) break;  // última página
+      offset += PAGE_SIZE;
+    }
+    if(allTracks.length >= PAGE_SIZE){
+      console.log('[loadSessionTracks] Loaded '+allTracks.length+' pings (paginated) for session '+sessionId);
+    }
+    return allTracks;
+  } catch(e){
+    console.warn('[loadSessionTracks] error:', e);
+    return allTracks;  // devolver lo que se pudo
+  }
 }
 
 // ── Detectar paradas y categorizar ──
